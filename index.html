@@ -328,6 +328,51 @@
     .mode-btn .mode-time { font-size: 0.9rem; }
     .theme-toggle { top: 10px; right: 10px; }
   }
+
+  /* ===== BUY ME A COFFEE ===== */
+  .coffee-btn {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    background: rgba(15, 20, 12, 0.75);
+    border: 1px solid var(--pip-dim);
+    border-radius: 3px;
+    color: var(--pip-primary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .coffee-btn:hover {
+    border-color: var(--pip-bright);
+    color: var(--pip-bright);
+    background: rgba(15, 20, 12, 0.9);
+    box-shadow: 0 0 12px var(--pip-glow);
+    text-shadow: 0 0 6px var(--pip-glow);
+  }
+  .coffee-btn svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+  }
+
 </style>
 </head>
 <body>
@@ -655,5 +700,12 @@ function bindTimer() {
 
 render();
 </script>
+
+<!-- Buy me a coffee -->
+<a class="coffee-btn" href="https://buymeacoffee.com/gregoryrichens" target="_blank" rel="noopener">
+  <svg viewBox="0 0 24 24"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
+  Buy me a coffee
+</a>
+
 </body>
 </html>
