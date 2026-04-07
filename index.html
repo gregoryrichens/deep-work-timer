@@ -526,15 +526,17 @@ function tick() {
   document.title = fmt(S.elapsedSeconds) + ' / ' + fmt(S.totalSeconds) + ' ' + label + ' \u2014 DEEP WORK';
 }
 
+var lastDisplayedSecond = -1;
 function updateTimer() {
   if (!S.running || S.paused || S.dragging) {
     if (S.running) S.rafId = requestAnimationFrame(updateTimer);
     return;
   }
-  var now = Date.now();
-  var prevElapsed = S.elapsedSeconds;
-  S.elapsedSeconds = Math.floor((now - S.startedAt) / 1000);
-  if (S.elapsedSeconds !== prevElapsed) {
+  S.elapsedSeconds = Math.floor((Date.now() - S.startedAt) / 1000);
+  if (S.elapsedSeconds > S.totalSeconds) S.elapsedSeconds = S.totalSeconds;
+  // Only update DOM when the displayed second changes
+  if (S.elapsedSeconds !== lastDisplayedSecond) {
+    lastDisplayedSecond = S.elapsedSeconds;
     // Check exercise snacks
     if (S.exerciseSnacks && S.phase === 'work') {
       var eMin = Math.floor(S.elapsedSeconds / 60);
@@ -546,8 +548,8 @@ function updateTimer() {
       });
     }
     if (S.elapsedSeconds >= S.totalSeconds) {
-      S.elapsedSeconds = S.totalSeconds;
       S.running = false; S.rafId = null;
+      tick();
       if (S.phase === 'work') {
         S.phase = 'alarm'; render();
         AudioEngine.playDoorChime(10);
@@ -574,22 +576,34 @@ document.addEventListener('visibilitychange', function() {
   }
 });
 
-// Background title updater — setInterval still fires ~1/sec in background tabs
-// This keeps the tab title counting even when the tab isn't focused
+// Background title updater — setInterval fires ~1/sec even in background tabs.
+// Only job: update document.title and sync elapsed from wall clock.
+// Does NOT call tick() — avoids conflict with rAF loop.
 var titleInterval = setInterval(function() {
-  if (!S.running || S.paused || S.phase === 'alarm' || S.phase === 'done') return;
-  if (!S.startedAt) return;
-  // Recalculate from wall clock
+  if (!S.running || S.paused || !S.startedAt) return;
+  if (S.phase === 'alarm' || S.phase === 'done') return;
+  // Sync elapsed from wall clock
   var elapsed = Math.floor((Date.now() - S.startedAt) / 1000);
   if (elapsed > S.totalSeconds) elapsed = S.totalSeconds;
   S.elapsedSeconds = elapsed;
-  var remaining = S.totalSeconds - S.elapsedSeconds;
+  // Update tab title
   var label = S.phase === 'work' ? 'Focus' : 'Break';
-  document.title = fmt(S.elapsedSeconds) + ' / ' + fmt(S.totalSeconds) + ' ' + label + ' — DEEP WORK';
-  // Check if phase completed while in background
+  document.title = fmt(S.elapsedSeconds) + ' / ' + fmt(S.totalSeconds) + ' ' + label + ' \u2014 DEEP WORK';
+  // Check snacks
+  if (S.exerciseSnacks && S.phase === 'work') {
+    var eMin = Math.floor(S.elapsedSeconds / 60);
+    snackMins().forEach(function(m) {
+      if (eMin >= m && !S.triggeredSnacks[m]) {
+        S.triggeredSnacks[m] = true;
+        showSnack();
+      }
+    });
+  }
+  // Phase completed while in background
   if (S.elapsedSeconds >= S.totalSeconds && S.running) {
     S.running = false;
     if (S.rafId) { cancelAnimationFrame(S.rafId); S.rafId = null; }
+    tick();
     if (S.phase === 'work') {
       S.phase = 'alarm'; render();
       AudioEngine.playDoorChime(10);
