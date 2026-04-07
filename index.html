@@ -493,7 +493,7 @@ var AudioEngine = (function() {
 var S = {
   screen: 'config', mode: '52/17', exerciseSnacks: false,
   phase: 'work', totalSeconds: 0, elapsedSeconds: 0,
-  running: false, paused: false, intervalId: null,
+  running: false, paused: false, intervalId: null, rafId: null,
   alarmTimeout: null, snackTimeout: null, triggeredSnacks: {}, dragging: false,
   startedAt: null,       // Date.now() when timer started
   pausedElapsed: 0       // elapsed seconds when paused
@@ -521,21 +521,21 @@ function tick() {
   if (el) el.textContent = fmt(S.elapsedSeconds);
   var pct = S.totalSeconds > 0 ? (S.elapsedSeconds / S.totalSeconds) * 100 : 0;
   if (fill) fill.style.width = pct + '%';
+  // Update tab title
+  var label = S.phase === 'work' ? 'Focus' : 'Break';
+  document.title = fmt(S.elapsedSeconds) + ' / ' + fmt(S.totalSeconds) + ' ' + label + ' \u2014 DEEP WORK';
 }
 
-function startTimer() {
-  if (S.intervalId) clearInterval(S.intervalId);
-  S.running = true; S.paused = false;
-  // Track wall-clock start, accounting for any existing elapsed time
-  S.startedAt = Date.now() - (S.elapsedSeconds * 1000);
-  S.intervalId = setInterval(function() {
-    if (S.paused || S.dragging) return;
-    // Calculate elapsed from wall clock — immune to tab throttling
-    var now = Date.now();
-    var prevElapsed = S.elapsedSeconds;
-    S.elapsedSeconds = Math.floor((now - S.startedAt) / 1000);
-    if (S.elapsedSeconds === prevElapsed) return; // no change this tick
-    // Check exercise snacks for any minutes we may have skipped
+function updateTimer() {
+  if (!S.running || S.paused || S.dragging) {
+    if (S.running) S.rafId = requestAnimationFrame(updateTimer);
+    return;
+  }
+  var now = Date.now();
+  var prevElapsed = S.elapsedSeconds;
+  S.elapsedSeconds = Math.floor((now - S.startedAt) / 1000);
+  if (S.elapsedSeconds !== prevElapsed) {
+    // Check exercise snacks
     if (S.exerciseSnacks && S.phase === 'work') {
       var eMin = Math.floor(S.elapsedSeconds / 60);
       snackMins().forEach(function(m) {
@@ -547,7 +547,7 @@ function startTimer() {
     }
     if (S.elapsedSeconds >= S.totalSeconds) {
       S.elapsedSeconds = S.totalSeconds;
-      clearInterval(S.intervalId); S.intervalId = null; S.running = false;
+      S.running = false; S.rafId = null;
       if (S.phase === 'work') {
         S.phase = 'alarm'; render();
         AudioEngine.playDoorChime(10);
@@ -563,7 +563,53 @@ function startTimer() {
       return;
     }
     tick();
-  }, 250);
+  }
+  if (S.running) S.rafId = requestAnimationFrame(updateTimer);
+}
+
+// Catch up instantly when tab becomes visible again
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden && S.running && !S.paused) {
+    updateTimer();
+  }
+});
+
+// Background title updater — setInterval still fires ~1/sec in background tabs
+// This keeps the tab title counting even when the tab isn't focused
+var titleInterval = setInterval(function() {
+  if (!S.running || S.paused || S.phase === 'alarm' || S.phase === 'done') return;
+  if (!S.startedAt) return;
+  // Recalculate from wall clock
+  var elapsed = Math.floor((Date.now() - S.startedAt) / 1000);
+  if (elapsed > S.totalSeconds) elapsed = S.totalSeconds;
+  S.elapsedSeconds = elapsed;
+  var remaining = S.totalSeconds - S.elapsedSeconds;
+  var label = S.phase === 'work' ? 'Focus' : 'Break';
+  document.title = fmt(S.elapsedSeconds) + ' / ' + fmt(S.totalSeconds) + ' ' + label + ' — DEEP WORK';
+  // Check if phase completed while in background
+  if (S.elapsedSeconds >= S.totalSeconds && S.running) {
+    S.running = false;
+    if (S.rafId) { cancelAnimationFrame(S.rafId); S.rafId = null; }
+    if (S.phase === 'work') {
+      S.phase = 'alarm'; render();
+      AudioEngine.playDoorChime(10);
+      S.alarmTimeout = setTimeout(function() {
+        S.phase = 'rest'; S.totalSeconds = restSec(); S.elapsedSeconds = 0;
+        render(); startTimer();
+      }, 10000);
+    } else if (S.phase === 'rest') {
+      S.phase = 'alarm'; render();
+      AudioEngine.playDoorChime(10);
+      S.alarmTimeout = setTimeout(function() { S.phase = 'done'; render(); }, 10000);
+    }
+  }
+}, 1000);
+
+function startTimer() {
+  if (S.rafId) cancelAnimationFrame(S.rafId);
+  S.running = true; S.paused = false;
+  S.startedAt = Date.now() - (S.elapsedSeconds * 1000);
+  S.rafId = requestAnimationFrame(updateTimer);
   render();
 }
 
@@ -579,29 +625,30 @@ function togglePause() {
   else {
     S.paused = !S.paused;
     if (!S.paused) {
-      // Resuming — reset startedAt so elapsed stays correct
       S.startedAt = Date.now() - (S.elapsedSeconds * 1000);
+      S.rafId = requestAnimationFrame(updateTimer);
     }
     render();
   }
 }
 
 function resetTimer() {
-  if (S.intervalId) clearInterval(S.intervalId);
+  if (S.intervalId) clearInterval(S.intervalId); if (S.rafId) { cancelAnimationFrame(S.rafId); S.rafId = null; }
   if (S.alarmTimeout) clearTimeout(S.alarmTimeout);
   hideSnack();
   S.phase = 'work'; S.totalSeconds = workSec(); S.elapsedSeconds = 0;
   S.triggeredSnacks = {}; S.paused = false; S.running = false;
   S.startedAt = null;
+  document.title = 'DEEP WORK TERMINAL';
   render();
 }
 
 function goBack() {
-  if (S.intervalId) clearInterval(S.intervalId);
+  if (S.intervalId) clearInterval(S.intervalId); if (S.rafId) { cancelAnimationFrame(S.rafId); S.rafId = null; }
   if (S.alarmTimeout) clearTimeout(S.alarmTimeout);
   hideSnack();
   S.screen = 'config'; S.running = false; S.paused = false;
-  S.phase = 'work'; render();
+  S.phase = 'work'; document.title = 'DEEP WORK TERMINAL'; render();
 }
 
 function setupDrag() {
