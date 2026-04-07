@@ -198,6 +198,16 @@
     box-shadow: 0 0 12px var(--pip-glow), inset 0 0 10px rgba(0,0,0,0.1);
   }
   .mode-btn .mode-time { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; font-weight: 700; display: block; margin-bottom: 4px; }
+  
+  .mode-sub {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.55rem;
+    font-weight: 500;
+    letter-spacing: 1px;
+    opacity: 0.6;
+    text-transform: uppercase;
+    vertical-align: baseline;
+  }
   .mode-btn .mode-desc { font-size: 0.6rem; opacity: 0.65; letter-spacing: 1px; }
 
   .checkbox-container {
@@ -484,7 +494,9 @@ var S = {
   screen: 'config', mode: '52/17', exerciseSnacks: false,
   phase: 'work', totalSeconds: 0, elapsedSeconds: 0,
   running: false, paused: false, intervalId: null,
-  alarmTimeout: null, snackTimeout: null, triggeredSnacks: {}, dragging: false
+  alarmTimeout: null, snackTimeout: null, triggeredSnacks: {}, dragging: false,
+  startedAt: null,       // Date.now() when timer started
+  pausedElapsed: 0       // elapsed seconds when paused
 };
 
 function workSec() { return S.mode === '52/17' ? 52*60 : 112*60; }
@@ -514,19 +526,27 @@ function tick() {
 function startTimer() {
   if (S.intervalId) clearInterval(S.intervalId);
   S.running = true; S.paused = false;
+  // Track wall-clock start, accounting for any existing elapsed time
+  S.startedAt = Date.now() - (S.elapsedSeconds * 1000);
   S.intervalId = setInterval(function() {
     if (S.paused || S.dragging) return;
-    S.elapsedSeconds++;
+    // Calculate elapsed from wall clock — immune to tab throttling
+    var now = Date.now();
+    var prevElapsed = S.elapsedSeconds;
+    S.elapsedSeconds = Math.floor((now - S.startedAt) / 1000);
+    if (S.elapsedSeconds === prevElapsed) return; // no change this tick
+    // Check exercise snacks for any minutes we may have skipped
     if (S.exerciseSnacks && S.phase === 'work') {
       var eMin = Math.floor(S.elapsedSeconds / 60);
       snackMins().forEach(function(m) {
-        if (eMin === m && S.elapsedSeconds % 60 === 0 && !S.triggeredSnacks[m]) {
+        if (eMin >= m && !S.triggeredSnacks[m]) {
           S.triggeredSnacks[m] = true;
           showSnack();
         }
       });
     }
     if (S.elapsedSeconds >= S.totalSeconds) {
+      S.elapsedSeconds = S.totalSeconds;
       clearInterval(S.intervalId); S.intervalId = null; S.running = false;
       if (S.phase === 'work') {
         S.phase = 'alarm'; render();
@@ -543,7 +563,7 @@ function startTimer() {
       return;
     }
     tick();
-  }, 1000);
+  }, 250);
   render();
 }
 
@@ -556,7 +576,14 @@ function launch() {
 
 function togglePause() {
   if (!S.running) { startTimer(); }
-  else { S.paused = !S.paused; render(); }
+  else {
+    S.paused = !S.paused;
+    if (!S.paused) {
+      // Resuming — reset startedAt so elapsed stays correct
+      S.startedAt = Date.now() - (S.elapsedSeconds * 1000);
+    }
+    render();
+  }
 }
 
 function resetTimer() {
@@ -565,6 +592,7 @@ function resetTimer() {
   hideSnack();
   S.phase = 'work'; S.totalSeconds = workSec(); S.elapsedSeconds = 0;
   S.triggeredSnacks = {}; S.paused = false; S.running = false;
+  S.startedAt = null;
   render();
 }
 
@@ -590,6 +618,10 @@ function setupDrag() {
       S.triggeredSnacks = kept;
     }
     tick();
+    // Keep startedAt in sync with manual elapsed change
+    if (S.running && S.startedAt) {
+      S.startedAt = Date.now() - (S.elapsedSeconds * 1000);
+    }
   }
   function onDown(cx) {
     S.dragging = true; setFromX(cx);
@@ -623,8 +655,8 @@ function renderConfig() {
     '<div class="h-rule"></div>' +
     '<div class="config-section"><span class="config-label">Select Timer Protocol</span>' +
     '<div class="mode-selector">' +
-    '<button class="mode-btn '+(S.mode==='52/17'?'active':'')+'" data-mode="52/17"><span class="mode-time">52m / 17m</span><span class="mode-desc">Standard cycle</span></button>' +
-    '<button class="mode-btn '+(S.mode==='112/26'?'active':'')+'" data-mode="112/26"><span class="mode-time">112m / 26m</span><span class="mode-desc">Deep focus cycle</span></button>' +
+    '<button class="mode-btn '+(S.mode==='52/17'?'active':'')+'" data-mode="52/17"><span class="mode-time">52m <span class="mode-sub">focus</span> / 17m <span class="mode-sub">break</span></span><span class="mode-desc">Standard cycle</span></button>' +
+    '<button class="mode-btn '+(S.mode==='112/26'?'active':'')+'" data-mode="112/26"><span class="mode-time">112m <span class="mode-sub">focus</span> / 26m <span class="mode-sub">break</span></span><span class="mode-desc">Deep focus cycle</span></button>' +
     '</div></div>' +
     '<div class="config-section"><span class="config-label">Options</span>' +
     '<div class="checkbox-container '+(S.exerciseSnacks?'checked':'')+'" id="snack-toggle">' +
