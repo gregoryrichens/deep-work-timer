@@ -86,6 +86,13 @@
     background-size: cover; background-position: center;
     transition: opacity 0.6s ease;
   }
+  #bg-night { background-image: url('../assets/background-night.jpg'); }
+  #bg-day { background-image: url('../assets/background-day.jpg'); }
+  #bg-red { background-image: url('../assets/background-red.jpg'); }
+  #bg-green { background-image: url('../assets/background-green.jpg'); }
+  #bg-orange { background-image: url('../assets/background-orange.jpg'); }
+  #bg-indigo { background-image: url('../assets/background-indigo.jpg'); }
+  #bg-violet { background-image: url('../assets/background-violet.jpg'); }
   #bg-night { opacity: 1; }
   #bg-day, #bg-red, #bg-green, #bg-orange, #bg-indigo, #bg-violet { opacity: 0; }
   body.theme-day #bg-night, body.theme-day #bg-red, body.theme-day #bg-green, body.theme-day #bg-orange, body.theme-day #bg-indigo, body.theme-day #bg-violet { opacity: 0; }
@@ -447,4 +454,3 @@
     .dial-container { width: 60px; height: 60px; }
     .dial-label { font-size: 7px; }
   }
-

@@ -35,6 +35,7 @@ deep-work-timer/
 ├── index.html                     # Modular application entry point
 ├── css/
 │   └── styles.css                 # Application styles
+├── assets/                         # Background images for the modular app
 ├── js/
 │   ├── app.js                     # Rendering and event binding
 │   ├── audio.js                   # Web Audio notifications
@@ -48,6 +49,8 @@ deep-work-timer/
 ## Implementation notes
 
 The timer derives elapsed time from the system clock rather than counting animation frames. This keeps sessions accurate when browsers throttle rendering in inactive tabs. The app is deliberately framework-free to keep the project portable and easy to inspect. JavaScript files are loaded in dependency order with `defer`, which preserves the app's existing browser support without requiring a bundler.
+
+The modular app stores background images in `assets/` so its HTML remains easy to navigate. The standalone artifact keeps those same images embedded as Base64 data URLs. This intentionally increases the artifact's file size, but ensures it can be shared or opened without an accompanying assets directory or external image requests.
 
 ## Accessibility
 
