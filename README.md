@@ -2,6 +2,8 @@
 
 A focused, single-page productivity timer built around two ultradian work/rest protocols. The interface is intentionally self-contained: no framework, build step, or server is required.
 
+<img width="1719" height="861" alt="Screenshot 2026-10-21 at 8 47 02 PM" src="https://github.com/user-attachments/assets/841590a4-17ef-4254-9bad-62bfd1fc27c0" />
+
 ## Features
 
 - 52/17 and 112/26 focus/rest protocols
