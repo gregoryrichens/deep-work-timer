@@ -57,3 +57,8 @@ The modular app stores background images in `assets/` so its HTML remains easy t
 ## Accessibility
 
 Interactive controls have keyboard support and visible focus states. The theme dial can be changed with the left and right arrow keys.
+
+## Future Features
+Group timers
+Shared playlist/music
+Pet (inspired by chat gpt pet icon)
