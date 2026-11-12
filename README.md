@@ -37,11 +37,12 @@ deep-work-timer/
 ├── index.html                     # Modular application entry point
 ├── css/
 │   └── styles.css                 # Application styles
-├── assets/                         # Background images for the modular app
+├── assets/                         # Background images and exercise snack sprite
 ├── js/
 │   ├── app.js                     # Rendering and event binding
 │   ├── audio.js                   # Web Audio notifications
 │   ├── dial.js                    # Theme dial interactions
+│   ├── snack-sprite.js            # Theme palette swap for the exercise snack sprite
 │   └── timer.js                   # Timer state and lifecycle
 ├── dist/
 │   └── deep-work-timer.html       # Optional standalone artifact
