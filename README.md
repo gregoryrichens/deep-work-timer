@@ -59,6 +59,6 @@ The modular app stores background images in `assets/` so its HTML remains easy t
 Interactive controls have keyboard support and visible focus states. The theme dial can be changed with the left and right arrow keys.
 
 ## Future Features
-Group timers
-Shared playlist/music
-Pet (inspired by chat gpt pet icon)
+- Shared timer rooms: host-controlled group sessions with presence ([spec](docs/shared-timer-room.md))
+- Shared playlists/music
+- Pet (inspired by chat gpt pet icon)
