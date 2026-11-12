@@ -71,35 +71,15 @@
 <div id="snack-layer">
   <div class="snack-popup">
     <h2>EXERCISE SNACK!</h2>
-    <svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg" style="width:180px;height:180px;margin:8px auto;display:block;">
-      <rect width="200" height="220" rx="4" fill="#0b0820"/>
-      <ellipse cx="100" cy="118" rx="34" ry="40" fill="#b87840" stroke="var(--pip-primary)" stroke-width="1.5"/>
-      <circle cx="100" cy="58" r="26" fill="#b87840" stroke="var(--pip-primary)" stroke-width="1.5"/>
-      <rect x="74" y="46" width="52" height="6" rx="3" fill="var(--pip-primary)" opacity="0.6"/>
-      <circle cx="90" cy="54" r="3.5" fill="#fff"/><circle cx="110" cy="54" r="3.5" fill="#fff"/>
-      <circle cx="91" cy="54.5" r="1.8" fill="#1a1a1a"/><circle cx="111" cy="54.5" r="1.8" fill="#1a1a1a"/>
-      <path d="M 86 67 Q 100 82 114 67" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-      <path d="M 66 108 Q 46 96 35 78 Q 30 70 38 66" stroke="#b87840" stroke-width="15" fill="none" stroke-linecap="round"/>
-      <rect x="28" y="56" width="24" height="9" rx="4" fill="#666" stroke="var(--pip-primary)" stroke-width="1"/>
-      <circle cx="26" cy="60.5" r="8" fill="#555" stroke="var(--pip-primary)" stroke-width="1"/>
-      <circle cx="54" cy="60.5" r="8" fill="#555" stroke="var(--pip-primary)" stroke-width="1"/>
-      <path d="M 134 108 Q 154 96 165 78 Q 170 70 162 66" stroke="#b87840" stroke-width="15" fill="none" stroke-linecap="round"/>
-      <rect x="148" y="56" width="24" height="9" rx="4" fill="#666" stroke="var(--pip-primary)" stroke-width="1"/>
-      <circle cx="146" cy="60.5" r="8" fill="#555" stroke="var(--pip-primary)" stroke-width="1"/>
-      <circle cx="174" cy="60.5" r="8" fill="#555" stroke="var(--pip-primary)" stroke-width="1"/>
-      <ellipse cx="42" cy="82" rx="11" ry="8" fill="#c88848" opacity="0.5"/>
-      <ellipse cx="158" cy="82" rx="11" ry="8" fill="#c88848" opacity="0.5"/>
-      <rect x="76" y="150" width="48" height="18" rx="4" fill="#333" stroke="var(--pip-primary)" stroke-width="1"/>
-      <rect x="82" y="165" width="14" height="32" rx="5" fill="#b87840" stroke="var(--pip-primary)" stroke-width="1"/>
-      <rect x="104" y="165" width="14" height="32" rx="5" fill="#b87840" stroke="var(--pip-primary)" stroke-width="1"/>
-      <text x="100" y="212" text-anchor="middle" fill="var(--pip-primary)" font-family="Orbitron,sans-serif" font-size="10" font-weight="900" letter-spacing="2">YEAH BUDDY!</text>
-    </svg>
+    <canvas id="snack-sprite" class="snack-sprite" width="144" height="153" data-src="./assets/snack-sprite.png" role="img" aria-label="Pixel-art bodybuilder flexing"></canvas>
+    <div class="snack-shout">YEAH BUDDY!</div>
     <div class="subtext">LIGHT WEIGHT!</div>
     <div class="snack-countdown">Auto-dismiss in a few seconds...</div>
   </div>
 </div>
 
 <script src="./js/dial.js" defer></script>
+<script src="./js/snack-sprite.js" defer></script>
 <script src="./js/audio.js" defer></script>
 <script src="./js/timer.js" defer></script>
 <script src="./js/app.js" defer></script>

@@ -154,6 +154,16 @@
     color: var(--pip-bright); font-size: 1.3rem; letter-spacing: 3px;
     margin-bottom: 10px; text-shadow: 0 0 12px var(--pip-glow);
   }
+  .snack-sprite {
+    display: block; margin: 8px auto 0;
+    width: 288px; max-width: 100%; height: auto;
+    image-rendering: crisp-edges; image-rendering: pixelated;
+  }
+  .snack-shout {
+    font-family: 'Orbitron', sans-serif; font-weight: 900;
+    color: var(--pip-primary); font-size: 0.8rem; letter-spacing: 2px;
+    margin-top: 8px;
+  }
   .snack-popup .subtext {
     font-family: 'Rajdhani', sans-serif; font-size: 0.85rem;
     color: var(--pip-primary); margin-top: 10px; letter-spacing: 2px;
@@ -522,29 +532,8 @@
 <div id="snack-layer">
   <div class="snack-popup">
     <h2>EXERCISE SNACK!</h2>
-    <svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg" style="width:180px;height:180px;margin:8px auto;display:block;">
-      <rect width="200" height="220" rx="4" fill="#0b0820"/>
-      <ellipse cx="100" cy="118" rx="34" ry="40" fill="#b87840" stroke="var(--pip-primary)" stroke-width="1.5"/>
-      <circle cx="100" cy="58" r="26" fill="#b87840" stroke="var(--pip-primary)" stroke-width="1.5"/>
-      <rect x="74" y="46" width="52" height="6" rx="3" fill="var(--pip-primary)" opacity="0.6"/>
-      <circle cx="90" cy="54" r="3.5" fill="#fff"/><circle cx="110" cy="54" r="3.5" fill="#fff"/>
-      <circle cx="91" cy="54.5" r="1.8" fill="#1a1a1a"/><circle cx="111" cy="54.5" r="1.8" fill="#1a1a1a"/>
-      <path d="M 86 67 Q 100 82 114 67" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-      <path d="M 66 108 Q 46 96 35 78 Q 30 70 38 66" stroke="#b87840" stroke-width="15" fill="none" stroke-linecap="round"/>
-      <rect x="28" y="56" width="24" height="9" rx="4" fill="#666" stroke="var(--pip-primary)" stroke-width="1"/>
-      <circle cx="26" cy="60.5" r="8" fill="#555" stroke="var(--pip-primary)" stroke-width="1"/>
-      <circle cx="54" cy="60.5" r="8" fill="#555" stroke="var(--pip-primary)" stroke-width="1"/>
-      <path d="M 134 108 Q 154 96 165 78 Q 170 70 162 66" stroke="#b87840" stroke-width="15" fill="none" stroke-linecap="round"/>
-      <rect x="148" y="56" width="24" height="9" rx="4" fill="#666" stroke="var(--pip-primary)" stroke-width="1"/>
-      <circle cx="146" cy="60.5" r="8" fill="#555" stroke="var(--pip-primary)" stroke-width="1"/>
-      <circle cx="174" cy="60.5" r="8" fill="#555" stroke="var(--pip-primary)" stroke-width="1"/>
-      <ellipse cx="42" cy="82" rx="11" ry="8" fill="#c88848" opacity="0.5"/>
-      <ellipse cx="158" cy="82" rx="11" ry="8" fill="#c88848" opacity="0.5"/>
-      <rect x="76" y="150" width="48" height="18" rx="4" fill="#333" stroke="var(--pip-primary)" stroke-width="1"/>
-      <rect x="82" y="165" width="14" height="32" rx="5" fill="#b87840" stroke="var(--pip-primary)" stroke-width="1"/>
-      <rect x="104" y="165" width="14" height="32" rx="5" fill="#b87840" stroke="var(--pip-primary)" stroke-width="1"/>
-      <text x="100" y="212" text-anchor="middle" fill="var(--pip-primary)" font-family="Orbitron,sans-serif" font-size="10" font-weight="900" letter-spacing="2">YEAH BUDDY!</text>
-    </svg>
+    <canvas id="snack-sprite" class="snack-sprite" width="144" height="153" data-src="data:image/png;base64,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" role="img" aria-label="Pixel-art bodybuilder flexing"></canvas>
+    <div class="snack-shout">YEAH BUDDY!</div>
     <div class="subtext">LIGHT WEIGHT!</div>
     <div class="snack-countdown">Auto-dismiss in a few seconds...</div>
   </div>
@@ -1164,6 +1153,75 @@ function bindTimer() {
 }
 
 render();
+
+// ============================================================
+// EXERCISE SNACK SPRITE
+// ============================================================
+// Exercise snack sprite: a 4-colour pixel-art image, palette-swapped to the active theme.
+// The rust tone becomes the theme's dark shade (--pip-dim) and the orange tone becomes its
+// midtone (--pip-primary). Near-black shadows, pale highlights and transparency are kept,
+// so the pixel grid and checkerboard dithering stay intact.
+var SnackSprite = (function() {
+  var RUST = [165, 40, 10];
+  var ORANGE = [244, 123, 40];
+  var canvas, ctx, source, img;
+
+  function cssColor(name) {
+    // Let the canvas normalise any CSS colour to #rrggbb.
+    ctx.fillStyle = '#000';
+    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue(name).trim() || '#000';
+    var hex = ctx.fillStyle;
+    return [parseInt(hex.substr(1, 2), 16), parseInt(hex.substr(3, 2), 16), parseInt(hex.substr(5, 2), 16)];
+  }
+
+  function paint() {
+    if (!ctx || !img || !img.complete || !img.naturalWidth) return;
+    if (!source) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      try {
+        source = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      } catch (e) {
+        // Canvas is tainted (e.g. index.html opened via file://): show the original colours.
+        return;
+      }
+    }
+    var dark = cssColor('--pip-dim');
+    var mid = cssColor('--pip-primary');
+    var out = ctx.createImageData(source.width, source.height);
+    var s = source.data, d = out.data;
+    for (var i = 0; i < s.length; i += 4) {
+      var r = s[i], g = s[i + 1], b = s[i + 2], to = null;
+      if (r === RUST[0] && g === RUST[1] && b === RUST[2]) to = dark;
+      else if (r === ORANGE[0] && g === ORANGE[1] && b === ORANGE[2]) to = mid;
+      if (to) { d[i] = to[0]; d[i + 1] = to[1]; d[i + 2] = to[2]; }
+      else { d[i] = r; d[i + 1] = g; d[i + 2] = b; }
+      d[i + 3] = s[i + 3];
+    }
+    ctx.putImageData(out, 0, 0);
+  }
+
+  function init() {
+    canvas = document.getElementById('snack-sprite');
+    if (!canvas) return;
+    ctx = canvas.getContext('2d');
+    img = new Image();
+    img.onload = function() {
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      source = null;
+      paint();
+    };
+    img.src = canvas.getAttribute('data-src');
+    // The theme dial swaps the class on <body>; repaint whenever that happens.
+    new MutationObserver(paint).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+
+  return { paint: paint };
+})();
 </script>
 
 <!-- Buy me a coffee -->
