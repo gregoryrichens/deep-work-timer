@@ -1,0 +1,14 @@
+{
+  "name": "deep-work-timer",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "node --test tests/session.test.js tests/room.test.js && vitest run",
+    "test:server": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.23.0",
+    "vitest": "4.1.12",
+    "wrangler": "4.155.0"
+  }
+}
