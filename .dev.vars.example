@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local development (wrangler dev). Never commit .dev.vars.
+# Generate a local-only secret with: openssl rand -base64 32
+ROOM_SECRET=replace-with-a-local-random-value
+ALLOWED_ORIGINS=http://localhost:8787
