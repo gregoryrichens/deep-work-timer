@@ -6,14 +6,23 @@ var S = {
   timer: SessionModel.initialTimer(), viewIndex: 0,
   phase: 'work', alarmAfter: null, totalSeconds: 0, elapsedSeconds: 0,
   running: false, paused: false, rafId: null,
-  snackTimeout: null, triggeredSnacks: {}, dragging: false
+  snackTimeout: null, triggeredSnacks: {}, dragging: false,
+  // room mode (roomId null = solo); the rest is UI state for the room screens (see app.js)
+  roomId: null, pendingMode: null, scrubMs: null,
+  creating: false, showRoomPass: false, roomPass: '', createMsg: '',
+  joinName: '', joinPass: '', joinError: null, passEdit: false
 };
 
 // Seams for the room client: swap the clock (local vs server-corrected) and the timer source
 // (local controls vs pushed from the server). Everything else goes through these.
-function now() { return Date.now(); }
+function now() { return (typeof Room !== 'undefined' && Room && Room.active()) ? Room.now() : Date.now(); }
 function getTimer() { return S.timer; }
-function applyTimer(timer) { S.timer = timer; derive(); }
+// In a room the timer object (with `mode`) comes from the server; the mode is adopted from it.
+function applyTimer(timer) { if (timer.mode && SessionModel.MODES[timer.mode]) S.mode = timer.mode; S.timer = timer; derive(); }
+
+function isRoom() { return S.roomId !== null; }
+function isHost() { return !isRoom() || Room.isHost(); }
+function roomSend(type, payload) { if (!Room.send(type, payload)) toast('// NOT CONNECTED'); }
 
 function modeCfg() { return SessionModel.MODES[S.mode]; }
 function snackMins() { return modeCfg().snackMins; }
@@ -128,7 +137,42 @@ setInterval(function() {
   if (isAdvancing()) { sync(); ensureLoop(); }
 }, 1000);
 
+// Exercise snacks are computed from the shared elapsed time but fired locally. Mark snacks whose minute
+// has already passed (or whose work phase is over) so they don't fire on join/reconnect.
+function premarkSnacks(v) {
+  snackMins().forEach(function(minute) {
+    if (v.phase !== 'work' || Math.floor(v.phaseElapsedSec / 60) >= minute) S.triggeredSnacks[minute] = true;
+  });
+}
+
+// A timer pushed by the server. fresh = welcome (join/reconnect): adopt silently (no chime, no snack burst).
+// Otherwise it is a live change: go through sync() so a live transition into an alarm still chimes.
+function onRoomTimer(timer, fresh) {
+  if (fresh) {
+    applyTimer(timer);
+    var v = derive();
+    S.viewIndex = v.index; lastDisplayedSecond = -1;
+    S.triggeredSnacks = {};
+    premarkSnacks(v);
+    return;
+  }
+  if (timer.mode && SessionModel.MODES[timer.mode]) S.mode = timer.mode;
+  S.timer = timer;
+  if (timer.anchorAt === null) { S.triggeredSnacks = {}; hideSnack(); }   // host reset
+  var pv = SessionModel.view(S.mode, SessionModel.elapsedMs(timer, now(), S.mode));
+  if (pv.phase === 'work') {   // backwards scrub re-arms later snacks, like solo
+    var eMin = Math.floor(pv.phaseElapsedSec / 60), kept = {};
+    Object.keys(S.triggeredSnacks).forEach(function(k) { if (parseInt(k) <= eMin) kept[k] = true; });
+    S.triggeredSnacks = kept;
+  }
+  if (S.dragging) return;
+  sync();
+  render();
+  ensureLoop();
+}
+
 function startTimer() {
+  if (isRoom()) { roomSend('start'); return; }
   applyTimer(SessionModel.start(getTimer(), S.mode, now()));
   S.viewIndex = SessionModel.view(S.mode, SessionModel.elapsedMs(getTimer(), now(), S.mode)).index;
   lastDisplayedSecond = -1;
@@ -145,6 +189,7 @@ function launch() {
 }
 
 function togglePause() {
+  if (isRoom()) { roomSend(getTimer().paused ? 'start' : 'pause'); return; }
   if (getTimer().paused) { startTimer(); }
   else {
     applyTimer(SessionModel.pause(getTimer(), S.mode, now()));
@@ -159,6 +204,7 @@ function cancelTimerEvents() {
 }
 
 function resetTimer() {
+  if (isRoom()) { roomSend('reset'); return; }
   cancelTimerEvents();
   S.triggeredSnacks = {};
   applyTimer(SessionModel.reset());
@@ -168,6 +214,7 @@ function resetTimer() {
 }
 
 function goBack() {
+  if (isRoom()) { leaveRoom(true); return; }
   cancelTimerEvents();
   S.screen = 'config';
   applyTimer(SessionModel.reset());
@@ -178,12 +225,14 @@ function goBack() {
 function setupDrag() {
   var track = document.getElementById('progress-track');
   if (!track) return;
+  if (isRoom() && !isHost()) return;   // only the host can scrub in a room
   function setFromX(cx) {
     // Scrubbing only applies within a work/rest phase (the model ignores alarm/done)
     if (S.phase !== 'work' && S.phase !== 'rest') return;
     var rect = track.getBoundingClientRect();
     var pct = Math.max(0, Math.min(1, (cx - rect.left) / rect.width));
     var ms = Math.round(pct * S.totalSeconds) * 1000;
+    if (isRoom()) S.scrubMs = ms;   // local preview only; one scrub message is sent on release
     applyTimer(SessionModel.scrub(getTimer(), S.mode, ms, now()));
     if (S.exerciseSnacks && S.phase === 'work') {
       var eMin = Math.floor(S.elapsedSeconds / 60);
@@ -198,6 +247,7 @@ function setupDrag() {
     function onMove(e) { setFromX(e.clientX !== undefined ? e.clientX : e.touches[0].clientX); }
     function onUp() {
       S.dragging = false;
+      if (isRoom() && S.scrubMs !== null) { roomSend('scrub', { elapsedMs: S.scrubMs }); S.scrubMs = null; }
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.removeEventListener('touchmove', onMove);
@@ -212,3 +262,15 @@ function setupDrag() {
   track.addEventListener('touchstart', function(e) { e.preventDefault(); onDown(e.touches[0].clientX); }, { passive: false });
 }
 
+// Leave the room: close the socket, clear ?room and return to the config screen.
+function leaveRoom(updateHistory) {
+  Room.leave();
+  cancelTimerEvents();
+  S.roomId = null; S.pendingMode = null; S.scrubMs = null; S.dragging = false;
+  S.screen = 'config';
+  applyTimer(SessionModel.reset());
+  S.viewIndex = 0; lastDisplayedSecond = -1; S.triggeredSnacks = {};
+  if (updateHistory) { try { history.replaceState({}, '', location.pathname); } catch (e) {} }
+  document.title = 'DEEP WORK TERMINAL';
+  render();
+}

@@ -464,3 +464,116 @@
     .dial-container { width: 60px; height: 60px; }
     .dial-label { font-size: 7px; }
   }
+
+
+  /* ===== SHARED ROOMS ===== */
+  /* Long room screens (roster) must scroll on short/phone viewports; body is overflow:hidden. */
+  .app-container { max-height: 100vh; overflow-y: auto; align-items: flex-start; }
+  .app-container > .terminal-panel { margin: auto; }
+  .app-container > .terminal-panel.room-panel { margin-bottom: 64px; }
+
+  .launch-row { display: flex; gap: 10px; margin-top: 8px; }
+  .launch-row .launch-btn { margin-top: 0; flex: 1; min-width: 0; padding-left: 8px; padding-right: 8px; }
+  .launch-btn:disabled { opacity: 0.5; cursor: default; }
+  .launch-btn.room-btn { background: transparent; border-color: var(--pip-dim); color: var(--pip-primary); }
+  .launch-btn.room-btn:hover:not(:disabled) { border-color: var(--pip-bright); color: var(--pip-bright); }
+
+  .room-create { margin-top: 12px; }
+  .room-status, .room-msg {
+    font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; letter-spacing: 2px;
+    color: var(--pip-bright); text-transform: uppercase; margin: 10px 0; min-height: 1em;
+  }
+  .room-msg.err { color: var(--pip-red); }
+  .field-label {
+    display: block; font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 0.7rem;
+    letter-spacing: 3px; text-transform: uppercase; color: var(--pip-dim); margin-bottom: 6px;
+  }
+  .field-label .opt { letter-spacing: 1px; opacity: 0.7; text-transform: none; }
+  .text-input {
+    width: 100%; background: rgba(0,0,0,0.35); border: 1px solid var(--pip-dim);
+    color: var(--pip-bright); font-family: 'Share Tech Mono', monospace; font-size: 1rem;
+    padding: 10px 12px; border-radius: 2px; outline: none;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .text-input:focus { border-color: var(--pip-bright); box-shadow: 0 0 10px var(--pip-glow); }
+  .text-input.small { width: 9em; padding: 4px 8px; font-size: 0.8rem; }
+  .link-btn {
+    background: none; border: none; color: var(--pip-dim); cursor: pointer;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; letter-spacing: 1px; padding: 4px 0;
+  }
+  .link-btn:hover { color: var(--pip-primary); }
+  .join-panel { padding-top: 6px; }
+  .join-panel .launch-btn { margin-top: 4px; }
+
+  .invite-bar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px;
+    padding: 8px 10px; margin-bottom: 14px; border: 1px solid var(--pip-dim);
+    border-radius: 2px; background: var(--pip-faint);
+    font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; letter-spacing: 2px;
+  }
+  .invite-label { color: var(--pip-dim); }
+  .invite-code { color: var(--pip-bright); font-family: 'Orbitron', sans-serif; font-weight: 700; letter-spacing: 3px; }
+  .lock-icon { width: 14px; height: 14px; fill: none; stroke: var(--pip-bright); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .mini-btn {
+    background: none; border: 1px solid var(--pip-dim); color: var(--pip-primary);
+    font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; padding: 4px 8px;
+    cursor: pointer; border-radius: 2px; letter-spacing: 1px; transition: all 0.25s ease;
+  }
+  .mini-btn:hover { border-color: var(--pip-bright); color: var(--pip-bright); background: var(--pip-faint); }
+  .pass-edit { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
+  .conn-bar {
+    text-align: center; padding: 6px; margin-bottom: 10px; border: 1px solid var(--pip-red);
+    color: var(--pip-red); font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; letter-spacing: 3px;
+    animation: connPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes connPulse { 50% { opacity: 0.45; } }
+
+  .room-mode { margin-bottom: 14px; }
+  .room-mode .mode-btn { padding: 10px 6px; }
+  .progress-track.locked { cursor: default; }
+  .progress-track.locked:hover { border-color: rgba(255,255,255,0.08); }
+  .host-note { color: var(--pip-dim); }
+
+  .roster-wrap { margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--pip-dim); }
+  .roster-title {
+    font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 0.7rem;
+    letter-spacing: 3px; color: var(--pip-dim); margin-bottom: 8px; text-transform: uppercase;
+  }
+  .roster { list-style: none; }
+  .member {
+    display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 0.8rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .m-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--pip-dim); }
+  .m-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pip-bright); }
+  .m-you { color: var(--pip-dim); }
+  .m-host {
+    font-size: 0.55rem; letter-spacing: 1px; padding: 1px 5px; border: 1px solid var(--pip-primary);
+    color: var(--pip-primary); border-radius: 2px;
+  }
+  .m-status { font-family: 'Rajdhani', sans-serif; font-size: 0.7rem; letter-spacing: 1px; color: var(--pip-dim); white-space: nowrap; }
+  .st-locked .m-dot { background: var(--pip-bright); box-shadow: 0 0 6px var(--pip-glow); }
+  .st-locked .m-status { color: var(--pip-bright); }
+  .st-break .m-dot { background: #4aa8d8; }
+  .st-away .m-dot, .st-away .m-name { opacity: 0.5; }
+  .st-ready .m-dot { background: transparent; border: 1px solid var(--pip-primary); }
+
+  .toasts {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 20;
+    display: flex; flex-direction: column; gap: 6px; align-items: center;
+    width: calc(100% - 140px); max-width: 420px; pointer-events: none;
+  }
+  .toast {
+    background: var(--pip-panel); border: 1px solid var(--pip-primary); color: var(--pip-bright);
+    font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; letter-spacing: 1px;
+    padding: 6px 12px; border-radius: 2px; box-shadow: 0 0 12px var(--pip-glow);
+    animation: fadeIn 0.3s ease; max-width: 100%; overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 600px) {
+    .launch-row { flex-direction: column; }
+    .launch-row .launch-btn { flex: none; }
+    .invite-bar { gap: 6px; }
+    .back-btn { top: 8px; left: 10px; }
+    .toasts { top: 10px; width: calc(100% - 100px); }
+  }
