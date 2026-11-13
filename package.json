@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "test": "node --test tests/session.test.js tests/room.test.js && vitest run",
-    "test:server": "vitest run"
+    "test:server": "vitest run",
+    "test:integration": "node --test tests/integration/rooms.integration.test.js"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.23.0",
