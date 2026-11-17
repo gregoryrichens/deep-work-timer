@@ -7,7 +7,9 @@ function render() {
   else { app.innerHTML = renderTimer(); bindTimer(); setupDrag(); }
 }
 
-function roomsAvailable() { return location.protocol === 'http:' || location.protocol === 'https:'; }
+function roomsAvailable() {
+  return RoomHelpers.roomsEnabled(typeof ROOMS_ENABLED !== 'undefined' && ROOMS_ENABLED, location.protocol);
+}
 
 function renderConfig() {
   var roomRow = roomsAvailable()
@@ -446,12 +448,14 @@ setInterval(updateRoster, 15000);
 
 // Browser back/forward between ?room= and the config screen.
 window.addEventListener('popstate', function() {
+  if (!roomsAvailable()) return;
   var id = RoomHelpers.parseRoomId(location.search);
   if (id === S.roomId) return;
   if (S.roomId) leaveRoom(false);
   if (id) showJoin(id, false);
 });
 
-var initialRoom = RoomHelpers.parseRoomId(location.search);
+// With rooms disabled, ?room= links open the normal solo timer.
+var initialRoom = roomsAvailable() ? RoomHelpers.parseRoomId(location.search) : null;
 if (initialRoom) showJoin(initialRoom, false);
 else render();

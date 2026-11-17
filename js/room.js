@@ -62,6 +62,11 @@ var RoomHelpers = (function() {
     return isValidRoomId(id) ? id : null;
   }
 
+  // Rooms need the feature flag on (strictly true) and a page served over http(s).
+  function roomsEnabled(flag, protocol) {
+    return flag === true && (protocol === 'http:' || protocol === 'https:');
+  }
+
   function isValidRoomId(id) {
     return typeof id === 'string' && id.length > 0 && id.length <= 200 && /^[A-Za-z0-9._-]+$/.test(id);
   }
@@ -104,7 +109,7 @@ var RoomHelpers = (function() {
     escapeHtml: escapeHtml, estimateOffset: estimateOffset, betterSample: betterSample,
     backoffDelay: backoffDelay, awayMinutes: awayMinutes, formatAway: formatAway,
     statusLabel: statusLabel, statusClass: statusClass,
-    parseRoomId: parseRoomId, isValidRoomId: isValidRoomId, shortRoomCode: shortRoomCode,
+    roomsEnabled: roomsEnabled, parseRoomId: parseRoomId, isValidRoomId: isValidRoomId, shortRoomCode: shortRoomCode,
     wsUrl: wsUrl, shouldReconnect: shouldReconnect, validName: validName, validPassword: validPassword,
     clientIdFromBytes: clientIdFromBytes, isValidClientId: isValidClientId
   };

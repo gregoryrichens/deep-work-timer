@@ -50,6 +50,27 @@ test('away minutes and status labels', () => {
   assert.strictEqual(H.statusClass('<b>'), 'st-unknown');
 });
 
+test('roomsEnabled: flag off hides rooms everywhere', () => {
+  assert.strictEqual(H.roomsEnabled(false, 'https:'), false);
+  assert.strictEqual(H.roomsEnabled(false, 'http:'), false);
+  assert.strictEqual(H.roomsEnabled(undefined, 'https:'), false);
+  assert.strictEqual(H.roomsEnabled('true', 'https:'), false);
+  assert.strictEqual(H.roomsEnabled(1, 'https:'), false);
+});
+
+test('roomsEnabled: flag on needs http(s)', () => {
+  assert.strictEqual(H.roomsEnabled(true, 'https:'), true);
+  assert.strictEqual(H.roomsEnabled(true, 'http:'), true);
+  assert.strictEqual(H.roomsEnabled(true, 'file:'), false);
+});
+
+test('js/config.js defines ROOMS_ENABLED as a boolean', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../js/config.js'), 'utf8');
+  const ctx = {};
+  require('node:vm').runInNewContext(src, ctx);
+  assert.strictEqual(typeof ctx.ROOMS_ENABLED, 'boolean');
+});
+
 test('parseRoomId', () => {
   const id = 'ABCDEFGHIJ.lq3x9z.AbCdEf_-0123456789';
   assert.strictEqual(H.parseRoomId('?room=' + encodeURIComponent(id)), id);

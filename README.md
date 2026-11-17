@@ -35,6 +35,8 @@ cp .dev.vars.example .dev.vars   # then set ROOM_SECRET to the output of: openss
 npm run dev                      # http://localhost:8787
 ```
 
+The room UI is behind a feature flag. Set `ROOMS_ENABLED = true` in [js/config.js](js/config.js) to show it; while it is `false`, the site is the solo timer only and `?room=` links open the solo timer.
+
 Run the tests with `npm test` (session, room client and server tests).
 
 ## Deploying and standalone use
@@ -56,6 +58,7 @@ deep-work-timer/
 ├── js/
 │   ├── app.js                     # Rendering and event binding
 │   ├── audio.js                   # Web Audio notifications
+│   ├── config.js                  # Feature flags (ROOMS_ENABLED)
 │   ├── dial.js                    # Theme dial interactions
 │   ├── room.js                    # Room client
 │   ├── session.js                 # Pure session model
