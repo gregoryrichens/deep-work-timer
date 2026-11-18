@@ -1,0 +1,34 @@
+{
+  "name": "deep-work-timer",
+  "main": "server/src/index.js",
+  // Newest date supported by the pinned wrangler and vitest workerd versions.
+  "compatibility_date": "2026-08-22",
+  // One Worker serves both the static site and the room API. Files in .assetsignore are not served.
+  "assets": { "directory": "./", "binding": "ASSETS" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOMS", "class_name": "Room" },
+      { "name": "CREATE_LIMITS", "class_name": "CreateLimiter" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room", "CreateLimiter"] }],
+  "ratelimits": [
+    {
+      "name": "ROOM_CREATE_LIMITER",
+      // Rate-limit namespace id. Any integer string that is unique within the account.
+      "namespace_id": "1001",
+      // Per-minute burst limit. The 5-per-hour limit is enforced in code by CreateLimiter.
+      "simple": { "limit": 5, "period": 60 }
+    }
+  ],
+  "vars": {
+    // Comma-separated origins allowed to create and join rooms. Empty rejects every origin.
+    // Local dev sets this in .dev.vars.
+    "ALLOWED_ORIGINS": "",
+    // PBKDF2 iterations for room passwords. Keep within the Worker CPU limit.
+    // workerd rejects values above 100000.
+    "PBKDF2_ITERATIONS": "25000"
+  },
+  "observability": { "enabled": true }
+  // ROOM_SECRET is a secret: set it with `wrangler secret put`, never in this file.
+}
