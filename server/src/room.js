@@ -72,7 +72,7 @@ export class Room extends DurableObject {
     });
   }
 
-  // ---- RPC: called by the Worker when a protected room is created --------------------
+  // ---- RPC: called by the Worker when a protected room is created ----
   async init(opts) {
     if (this.state) return false;
     if (!opts || typeof opts.createdAt !== 'number' || !opts.passwordHash || typeof opts.hostTokenHash !== 'string') {
@@ -124,7 +124,6 @@ export class Room extends DurableObject {
     if (!att) return;
     const now = Date.now();
 
-    // token bucket: ~5 msg/s sustained, burst 10
     att.bucket = Math.min(BUCKET_CAP, att.bucket + ((now - att.bucketAt) / SEC) * BUCKET_REFILL_PER_SEC);
     att.bucketAt = now;
     if (att.bucket < 1) return this.violate(ws, att, 'rateLimited', 'Too many messages');
@@ -170,42 +169,54 @@ export class Room extends DurableObject {
 
     this.busy.add(ws);
     try {
-      // Dead-links rule: never recreate an expired room, write nothing.
+      // Never recreate an expired room, and write nothing for it.
       let st = this.state;
-      if (st && st.cleanupAt && now >= st.cleanupAt) { await this.cleanup(); st = null; return this.expire(ws); }
+      if (st && st.cleanupAt && now >= st.cleanupAt) { await this.cleanup(); return this.expire(ws); }
       if (st) {
         if (!st.entered && now >= st.createdAt + ROOM_TTL_MS) { await this.cleanup(); return this.expire(ws); }
       } else if (now - att.createdAt >= ROOM_TTL_MS) {
         return this.expire(ws);
       }
 
+      // A clientId is public (welcome, members list), so it proves nothing. Once a clientId has
+      // a session (or is the host) only its private token can reclaim it; the password never can.
+      // The creator's unbound host token may only claim a clientId nobody has used yet.
       let issuedToken = null;
       let tokenHash = null;
-      if (st && st.password) {
+      if (st) {
         const given = typeof msg.sessionToken === 'string' ? await hashToken(msg.sessionToken) : null;
         const entry = given ? st.sessions[given] : null;
-        if (entry && (entry.clientId === null || entry.clientId === clientId)) {
+        const tokenOk = !!entry && (entry.clientId === clientId || (entry.clientId === null && !st.members[clientId]));
+        if (tokenOk) {
           tokenHash = given;
-        } else if (typeof msg.password === 'string' && msg.password !== '') {
-          const res = await this.checkPassword(att, msg.password, now);
-          if (this.state !== st) return this.expire(ws);
-          if (!res.ok) {
-            const out = { type: 'authFailed' };
-            if (res.retryAfterSec) out.retryAfterSec = res.retryAfterSec;
-            this.send(ws, out);
-            ws.close(4004, 'auth failed');
+        } else if (st.hostClientId === clientId || this.hasSession(st, clientId)) {
+          this.sendError(ws, 'sessionInvalid', 'Session token missing or invalid');
+          ws.close(4003, 'bad session');
+          return;
+        } else if (st.password) {
+          if (typeof msg.password === 'string' && msg.password !== '') {
+            const res = await this.checkPassword(att, msg.password, now);
+            if (this.state !== st) return this.expire(ws);
+            if (!res.ok) {
+              const out = { type: 'authFailed' };
+              if (res.retryAfterSec) out.retryAfterSec = res.retryAfterSec;
+              this.send(ws, out);
+              ws.close(4004, 'auth failed');
+              await this.reschedule();
+              return;
+            }
+          } else {
+            this.send(ws, { type: 'authRequired' });
+            ws.close(4004, 'auth required');
             await this.reschedule();
             return;
           }
-          issuedToken = generateToken();
-          tokenHash = await hashToken(issuedToken);
-        } else {
-          this.send(ws, { type: 'authRequired' });
-          ws.close(4004, 'auth required');
-          await this.reschedule();
-          return;
         }
         if (this.state !== st) return this.expire(ws);
+      }
+      if (!tokenHash) {
+        issuedToken = generateToken();
+        tokenHash = await hashToken(issuedToken);
       }
 
       if (st && !st.members[clientId] && Object.keys(st.members).length >= MAX_MEMBERS) {
@@ -214,24 +225,20 @@ export class Room extends DurableObject {
         return;
       }
 
-      // First valid hello: create state (unprotected rooms) and join. No awaits between the
-      // state check and assignment, so two racing first hellos cannot both create it.
+      // Open rooms are created by the first valid hello. No awaits between the state check
+      // and assignment, so two racing first hellos cannot both create it.
       if (!st) {
         st = newState(att.createdAt);
         st.hostClientId = clientId;
         this.state = st;
       }
       st.entered = true;
-      if (tokenHash) {
-        const entry = st.sessions[tokenHash];
-        if (entry) {
-          if (entry.clientId === null) {
-            entry.clientId = clientId;
-            if (st.hostClientId === null) st.hostClientId = clientId;
-          }
-        } else {
-          this.addSession(st, tokenHash, clientId, now);
-        }
+      const entry = st.sessions[tokenHash];
+      if (!entry) {
+        this.addSession(st, tokenHash, clientId, now);
+      } else if (entry.clientId === null) {
+        entry.clientId = clientId;
+        if (st.hostClientId === null) st.hostClientId = clientId;
       }
       const prev = st.members[clientId];
       st.members[clientId] = { name, joinedAt: prev ? prev.joinedAt : now, disconnectedAt: null };
@@ -243,6 +250,13 @@ export class Room extends DurableObject {
       att.helloDeadline = null;
       ws.serializeAttachment(att);
 
+      // If the host's handoff already ran while the room was empty, nobody would ever be
+      // elected again, so the first joiner after that takes over.
+      if (st.hostClientId !== null && st.hostClientId !== clientId && !st.handoffAt && !this.isConnected(st.hostClientId)) {
+        st.hostClientId = clientId;
+        this.broadcast({ type: 'host', hostClientId: clientId }, ws);
+      }
+
       await this.save();
       this.send(ws, this.welcome(clientId, issuedToken));
       this.broadcastMembers(true);
@@ -252,8 +266,12 @@ export class Room extends DurableObject {
     }
   }
 
+  hasSession(st, clientId) {
+    return Object.keys(st.sessions).some((h) => st.sessions[h].clientId === clientId);
+  }
+
   addSession(st, tokenHash, clientId, now) {
-    // one token per client; bound the table
+    // one token per client; bound the table, never evicting the host
     for (const h of Object.keys(st.sessions)) {
       if (st.sessions[h].clientId === clientId) delete st.sessions[h];
     }
@@ -389,8 +407,8 @@ export class Room extends DurableObject {
     }
     st.sessions = keep;
 
-    // Tokens to hand out: the host (if it has none) and, when a password is first set,
-    // everyone currently in the room (they were already inside, so they stay in on refresh).
+    // Hand out tokens to the host (if it has none) and, when a password is first set, to
+    // everyone already in the room so they stay in on refresh.
     const tokens = {};
     if (newHash) {
       const hostHas = Object.keys(keep).length > 0;
@@ -405,8 +423,7 @@ export class Room extends DurableObject {
       }
     }
     await this.save();
-    // Members who just received a token get a fresh welcome (it carries the token);
-    // everyone gets a members broadcast whose `protected` flag updates the lock icon.
+    // New token holders get a fresh welcome carrying it; the broadcast updates the lock icon.
     for (const w of this.joinedSockets()) {
       const cid = w.deserializeAttachment().clientId;
       if (tokens[cid]) this.send(w, this.welcome(cid, tokens[cid]));
@@ -439,7 +456,6 @@ export class Room extends DurableObject {
     const st = this.state;
     let dirty = false;
 
-    // hello timeouts (works with or without stored state)
     for (const w of this.ctx.getWebSockets()) {
       const a = w.deserializeAttachment();
       if (a && !a.helloDone && a.helloDeadline && now >= a.helloDeadline) {

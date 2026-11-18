@@ -37,9 +37,8 @@ var SessionModel = (function() {
 
   function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 
-  // Elapsed session time: paused ? offsetMs : offsetMs + (nowMs - anchorAt), floored at 0.
-  // The contract says "clamped to [0, totalMs]" but the timer carries no mode, so the upper
-  // clamp only applies when the optional third argument `mode` is given. view() always clamps.
+  // The timer carries no mode, so the upper clamp to the session length only applies when the
+  // optional `mode` argument is given. view() always clamps.
   function elapsedMs(timer, nowMs, mode) {
     var e = timer.paused || timer.anchorAt === null
       ? timer.offsetMs

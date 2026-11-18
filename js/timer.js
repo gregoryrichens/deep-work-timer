@@ -225,7 +225,7 @@ function goBack() {
 function setupDrag() {
   var track = document.getElementById('progress-track');
   if (!track) return;
-  if (isRoom() && !isHost()) return;   // only the host can scrub in a room
+  if (isRoom() && !isHost()) return;
   function setFromX(cx) {
     // Scrubbing only applies within a work/rest phase (the model ignores alarm/done)
     if (S.phase !== 'work' && S.phase !== 'rest') return;

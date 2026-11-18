@@ -1,9 +1,9 @@
 {
   "name": "deep-work-timer",
   "main": "server/src/index.js",
-  // Newest date supported by BOTH the pinned wrangler's workerd and the vitest pool's workerd (2026-08-22).
+  // Newest date supported by the pinned wrangler and vitest workerd versions.
   "compatibility_date": "2026-08-22",
-  // Option A: one Worker serves the site and the rooms. Filtered by .assetsignore.
+  // One Worker serves both the static site and the room API. Files in .assetsignore are not served.
   "assets": { "directory": "./", "binding": "ASSETS" },
   "durable_objects": {
     "bindings": [
@@ -15,21 +15,20 @@
   "ratelimits": [
     {
       "name": "ROOM_CREATE_LIMITER",
-      // "1001" is the namespace id chosen in infra step I6.
+      // Rate-limit namespace id. Any integer string that is unique within the account.
       "namespace_id": "1001",
-      // The binding only supports 10s or 60s periods. This is a per-minute burst brake;
-      // the real 5-per-hour limit is enforced in code (CreateLimiter Durable Object).
+      // Per-minute burst limit. The 5-per-hour limit is enforced in code by CreateLimiter.
       "simple": { "limit": 5, "period": 60 }
     }
   ],
   "vars": {
-    // Comma-separated allowed Origins. Production origins come from infra step I4.
-    // Empty means every origin is rejected (fail closed). Local dev sets it in .dev.vars.
+    // Comma-separated origins allowed to create and join rooms. Empty rejects every origin.
+    // Local dev sets this in .dev.vars.
     "ALLOWED_ORIGINS": "",
-    // PBKDF2 iterations for room passwords. Must be measured against the plan CPU limit
-    // (infra step I2). workerd rejects values above 100000.
+    // PBKDF2 iterations for room passwords. Keep within the Worker CPU limit.
+    // workerd rejects values above 100000.
     "PBKDF2_ITERATIONS": "25000"
   },
   "observability": { "enabled": true }
-  // Secrets (never put them here): ROOM_SECRET is set separately (infra step I5).
+  // ROOM_SECRET is a secret: set it with `wrangler secret put`, never in this file.
 }

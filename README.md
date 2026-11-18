@@ -58,7 +58,7 @@ deep-work-timer/
 ├── js/
 │   ├── app.js                     # Rendering and event binding
 │   ├── audio.js                   # Web Audio notifications
-│   ├── config.js                  # Feature flags (ROOMS_ENABLED)
+│   ├── config.js                  # Feature flags
 │   ├── dial.js                    # Theme dial interactions
 │   ├── room.js                    # Room client
 │   ├── session.js                 # Pure session model

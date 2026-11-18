@@ -151,15 +151,16 @@ describe('hello and abuse limits', () => {
 
   it('caps the room at 20 members (roomFull, 4002)', async () => {
     const { roomId } = await mk();
+    const tokens = {};
     for (let i = 1; i <= 20; i++) {
       const c = await jn(roomId, i);
-      await c.next('welcome');
+      tokens[i] = (await c.next('welcome')).sessionToken;
     }
     const extra = await jn(roomId, 21);
     await extra.nextError('roomFull');
     expect((await extra.waitClosed()).code).toBe(4002);
     // an existing member can still reconnect
-    const again = await jn(roomId, 5);
+    const again = await jn(roomId, 5, { sessionToken: tokens[5] });
     await again.next('welcome');
   });
 });
@@ -225,7 +226,7 @@ describe('timer, host and presence', () => {
   it('keeps the host across a refresh and does not hand off before 30s', async () => {
     const { roomId } = await mk();
     const a = await jn(roomId, 1);
-    await a.next('welcome');
+    const aToken = (await a.next('welcome')).sessionToken;
     const b = await jn(roomId, 2);
     await b.next('welcome');
     a.close();
@@ -233,7 +234,7 @@ describe('timer, host and presence', () => {
     advance(10000);
     await runDurableObjectAlarm(stubFor(roomId));
     expect(b.noMessage('host')).toBe(true);
-    const a2 = await jn(roomId, 1);
+    const a2 = await jn(roomId, 1, { sessionToken: aToken });
     expect((await a2.next('welcome')).hostClientId).toBe(cid(1));
     advance(60000);
     await runDurableObjectAlarm(stubFor(roomId));
@@ -243,7 +244,7 @@ describe('timer, host and presence', () => {
   it('promotes the longest-present member 30s after the host leaves', async () => {
     const { roomId } = await mk();
     const a = await jn(roomId, 1);
-    await a.next('welcome');
+    const aToken = (await a.next('welcome')).sessionToken;
     const b = await jn(roomId, 2);
     await b.next('welcome');
     advance(1000);
@@ -258,7 +259,7 @@ describe('timer, host and presence', () => {
     b.send({ type: 'start' });
     expect((await c.next('timer')).paused).toBe(false);
     // the old host is a normal member now
-    const a2 = await jn(roomId, 1);
+    const a2 = await jn(roomId, 1, { sessionToken: aToken });
     expect((await a2.next('welcome')).hostClientId).toBe(cid(2));
     a2.send({ type: 'pause' });
     await a2.nextError('notHost');
@@ -352,6 +353,105 @@ describe('timer, host and presence', () => {
   });
 });
 
+describe('host impersonation', () => {
+  async function expectRejected(c) {
+    await c.nextError('sessionInvalid');
+    expect((await c.waitClosed()).code).toBe(4003);
+    expect(c.queue.some((m) => m.type === 'welcome')).toBe(false);
+  }
+
+  it('issues a private token to every new member of an open room', async () => {
+    const { roomId } = await mk();
+    const a = await jn(roomId, 1);
+    expect((await a.next('welcome')).sessionToken).toBeTruthy();
+    const b = await jn(roomId, 2);
+    expect((await b.next('welcome')).sessionToken).toBeTruthy();
+  });
+
+  it('rejects a second socket claiming the host clientId without its token (open room)', async () => {
+    const { roomId } = await mk();
+    const host = await jn(roomId, 1);
+    const hw = await host.next('welcome');
+    const thief = await jn(roomId, 1);
+    await expectRejected(thief);
+    const wrong = await jn(roomId, 1, { sessionToken: 'x'.repeat(30) });
+    await expectRejected(wrong);
+    // the real host is untouched and still controls the room
+    host.send({ type: 'start' });
+    expect((await host.next('timer')).paused).toBe(false);
+    // and a member cannot borrow another member's token to become the host
+    const b = await jn(roomId, 2);
+    const bw = await b.next('welcome');
+    const thief2 = await jn(roomId, 1, { sessionToken: bw.sessionToken });
+    await expectRejected(thief2);
+    expect(hw.sessionToken).toBeTruthy();
+  });
+
+  it('rejects a host clientId claim even with the correct password (protected room)', async () => {
+    const { roomId, sessionToken } = await mk('hunter2-secret');
+    const host = await jn(roomId, 1, { sessionToken });
+    const hw = await host.next('welcome');
+    expect(hw.sessionToken).toBeUndefined();
+    const thief = await jn(roomId, 1, { password: 'hunter2-secret' });
+    await expectRejected(thief);
+    const m = await jn(roomId, 2, { password: 'hunter2-secret' });
+    const mw = await m.next('welcome');
+    const thief2 = await jn(roomId, 2, { password: 'hunter2-secret' });
+    await expectRejected(thief2);
+    m.send({ type: 'start' });
+    await m.nextError('notHost');
+    expect(mw.hostClientId).toBe(cid(1));
+  });
+
+  it('lets the real host reconnect with its token, in an open room, while two tabs share it', async () => {
+    const { roomId } = await mk();
+    const tab1 = await jn(roomId, 1);
+    const w = await tab1.next('welcome');
+    const tab2 = await jn(roomId, 1, { sessionToken: w.sessionToken });
+    expect((await tab2.next('welcome')).hostClientId).toBe(cid(1));
+    tab1.close();
+    const again = await jn(roomId, 1, { sessionToken: w.sessionToken });
+    expect((await again.next('welcome')).hostClientId).toBe(cid(1));
+    again.send({ type: 'start' });
+    expect((await again.next('timer')).paused).toBe(false);
+  });
+});
+
+describe('hostless room recovery', () => {
+  it('elects a member who joins after the handoff alarm ran on an empty room', async () => {
+    const { roomId } = await mk();
+    const a = await jn(roomId, 1);
+    await a.next('welcome');
+    a.close();
+    await a.waitClosed();
+    await runInDurableObject(stubFor(roomId), async (_i, state) => {
+      const st = await state.storage.get('state');
+      expect(st.handoffAt).toBeTruthy();
+    });
+    advance(31000);
+    await runDurableObjectAlarm(stubFor(roomId));
+    await runInDurableObject(stubFor(roomId), async (_i, state) => {
+      const st = await state.storage.get('state');
+      expect(st.handoffAt).toBeNull();
+    });
+    const b = await jn(roomId, 2);
+    const bw = await b.next('welcome');
+    expect(bw.hostClientId).toBe(cid(2));
+    b.send({ type: 'start' });
+    expect((await b.next('timer')).paused).toBe(false);
+  });
+
+  it('does not steal the host from a host whose handoff is still pending', async () => {
+    const { roomId } = await mk();
+    const a = await jn(roomId, 1);
+    await a.next('welcome');
+    a.close();
+    await a.waitClosed();
+    const b = await jn(roomId, 2);
+    expect((await b.next('welcome')).hostClientId).toBe(cid(1));
+  });
+});
+
 describe('lifetime', () => {
   const TWO_H = 2 * 3600 * 1000;
 
@@ -379,13 +479,13 @@ describe('lifetime', () => {
   it('cancels deletion when someone rejoins before 2h, keeping timer state', async () => {
     const { roomId } = await mk();
     const a = await jn(roomId, 1);
-    await a.next('welcome');
+    const aToken = (await a.next('welcome')).sessionToken;
     a.send({ type: 'start' });
     await a.next('timer');
     a.close();
     await runInDurableObject(stubFor(roomId), async () => {});
     advance(3600 * 1000);
-    const a2 = await jn(roomId, 1);
+    const a2 = await jn(roomId, 1, { sessionToken: aToken });
     const w = await a2.next('welcome');
     expect(w.timer.paused).toBe(false);
     advance(TWO_H - 1000);
@@ -557,12 +657,11 @@ describe('password protection', () => {
   it('protects an open room when the host sets a password: tokens for current members, members.protected for all', async () => {
     const { roomId } = await mk();
     const host = await jn(roomId, 1);
-    await host.next('welcome');
+    const hw = await host.next('welcome');
     const b = await jn(roomId, 2);
     const bw0 = await b.next('welcome');
     expect(bw0.protected).toBe(false);
     host.send({ type: 'setPassword', password: 'fresh-pass' });
-    const hw = await host.next('welcome');
     const bw = await b.next('welcome');
     expect(hw.sessionToken).toBeTruthy();
     expect(bw.sessionToken).toBeTruthy();
