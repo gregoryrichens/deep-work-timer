@@ -105,6 +105,11 @@ test('validName and validPassword', () => {
   assert.strictEqual(H.validPassword('x'.repeat(65)), false);
 });
 
+test('leavesTimerScreen covers terminal and auth statuses only', () => {
+  ['expired', 'full', 'closed', 'failed', 'authRequired', 'authFailed'].forEach(s => assert.strictEqual(H.leavesTimerScreen(s), true, s));
+  ['idle', 'connecting', 'live', 'reconnecting', undefined, null].forEach(s => assert.strictEqual(H.leavesTimerScreen(s), false, String(s)));
+});
+
 test('clientIdFromBytes yields a server-valid id', () => {
   const bytes = Array.from({ length: 16 }, (_, i) => i * 17);
   const id = H.clientIdFromBytes(bytes);

@@ -393,7 +393,7 @@ Room.on('status', function() {
   if (S.screen === 'join') render();
   else if (S.screen === 'timer') {
     var st = Room.status;
-    if (st === 'expired' || st === 'full' || st === 'closed' || st === 'failed') {
+    if (RoomHelpers.leavesTimerScreen(st)) {
       cancelTimerEvents();
       S.screen = 'join';
       render();
@@ -443,10 +443,8 @@ Room.on('error', function(m) {
   else toast('// ' + String(m.message || m.code || 'ERROR').toUpperCase().slice(0, 60));
 });
 
-// "AWAY (Nm)" ticks up client-side.
 setInterval(updateRoster, 15000);
 
-// Browser back/forward between ?room= and the config screen.
 window.addEventListener('popstate', function() {
   if (!roomsAvailable()) return;
   var id = RoomHelpers.parseRoomId(location.search);

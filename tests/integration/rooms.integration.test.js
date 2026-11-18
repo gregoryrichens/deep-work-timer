@@ -112,6 +112,15 @@ test('open room: join, late join, host controls, non-host rejection, view agreem
   assert.equal(guest.members.length, 2);
   await host.waitFor((m) => m.type === 'members' && m.members.length === 2);
 
+  // A second socket claiming the host's public clientId without its token is rejected.
+  assert.ok(host.token, 'open-room members get a private token');
+  const thief = new Client(roomId, 'Thief');
+  thief.clientId = host.clientId;
+  await thief.open();
+  thief.hello();
+  assert.equal((await thief.waitFor((m) => m.type === 'error')).code, 'sessionInvalid');
+  assert.equal((await thief.waitClosed()).code, 4003);
+
   // Non-host control rejected.
   guest.send({ type: 'start' });
   const err = await guest.waitFor((m) => m.type === 'error');

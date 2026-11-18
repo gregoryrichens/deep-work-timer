@@ -22,13 +22,12 @@ var RoomHelpers = (function() {
     return best;
   }
 
-  // Reconnect delay: 1s, 2s, 4s ... capped at 30s. attempt starts at 0.
   function backoffDelay(attempt) {
     var n = Math.max(0, attempt | 0);
     return Math.min(30000, 1000 * Math.pow(2, Math.min(n, 10)));
   }
 
-  // Whole minutes since awaySince (server ms), using a server-corrected "now". null when unknown.
+  // Returns null when awaySince is not a number.
   function awayMinutes(awaySince, nowMs) {
     if (typeof awaySince !== 'number') return null;
     return Math.max(0, Math.floor((nowMs - awaySince) / 60000));
@@ -71,7 +70,6 @@ var RoomHelpers = (function() {
     return typeof id === 'string' && id.length > 0 && id.length <= 200 && /^[A-Za-z0-9._-]+$/.test(id);
   }
 
-  // Short display code: first 6 chars of the random part (before the first dot).
   function shortRoomCode(roomId) {
     return String(roomId || '').split('.')[0].slice(0, 6);
   }
@@ -86,7 +84,6 @@ var RoomHelpers = (function() {
     return !(closeCode >= 4001 && closeCode <= 4004);
   }
 
-  // Trimmed name when 1-24 chars, otherwise null.
   function validName(name) {
     var n = String(name === null || name === undefined ? '' : name).trim();
     return (n.length >= 1 && n.length <= 24) ? n : null;
@@ -96,7 +93,6 @@ var RoomHelpers = (function() {
     return typeof p === 'string' && p.length >= 4 && p.length <= 64;
   }
 
-  // 16-char clientId (matches [A-Za-z0-9_-]{8,64}) from random bytes.
   function clientIdFromBytes(bytes) {
     var out = '';
     for (var i = 0; i < 16; i++) out += ID_CHARS.charAt(bytes[i % bytes.length] & 63);
@@ -105,13 +101,21 @@ var RoomHelpers = (function() {
 
   function isValidClientId(id) { return typeof id === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(id); }
 
+  // Statuses that end a session on the timer screen and send the user back to the join panel.
+  // authRequired/authFailed: the stored token was revoked (e.g. the password changed), so a password is needed.
+  function leavesTimerScreen(status) {
+    return status === 'expired' || status === 'full' || status === 'closed' || status === 'failed' ||
+      status === 'authRequired' || status === 'authFailed';
+  }
+
   return {
     escapeHtml: escapeHtml, estimateOffset: estimateOffset, betterSample: betterSample,
     backoffDelay: backoffDelay, awayMinutes: awayMinutes, formatAway: formatAway,
     statusLabel: statusLabel, statusClass: statusClass,
     roomsEnabled: roomsEnabled, parseRoomId: parseRoomId, isValidRoomId: isValidRoomId, shortRoomCode: shortRoomCode,
     wsUrl: wsUrl, shouldReconnect: shouldReconnect, validName: validName, validPassword: validPassword,
-    clientIdFromBytes: clientIdFromBytes, isValidClientId: isValidClientId
+    clientIdFromBytes: clientIdFromBytes, isValidClientId: isValidClientId,
+    leavesTimerScreen: leavesTimerScreen
   };
 })();
 
