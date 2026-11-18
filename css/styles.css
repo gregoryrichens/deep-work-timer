@@ -89,9 +89,9 @@
   #bg-night { background-image: url('../assets/background-night.jpg'); }
   #bg-day { background-image: url('../assets/background-day.jpg'); }
   #bg-red { background-image: url('../assets/background-red.jpg'); }
-  #bg-green { background-image: url('../assets/background-green.jpg'); }
+  #bg-green { background-image: url('../assets/focuslock-green.jpg'); }
   #bg-orange { background-image: url('../assets/background-orange.jpg'); }
-  #bg-indigo { background-image: url('../assets/background-indigo.jpg'); }
+  #bg-indigo { background-image: url('../assets/focuslock-indigo.jpg'); }
   #bg-violet { background-image: url('../assets/background-violet.jpg'); }
   #bg-night { opacity: 1; }
   #bg-day, #bg-red, #bg-green, #bg-orange, #bg-indigo, #bg-violet { opacity: 0; }
