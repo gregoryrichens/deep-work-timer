@@ -468,9 +468,8 @@
 
   /* ===== SHARED ROOMS ===== */
   /* Long room screens (roster) must scroll on short/phone viewports; body is overflow:hidden. */
-  .app-container { max-height: 100vh; overflow-y: auto; align-items: flex-start; }
+  .app-container { max-height: 100vh; overflow-y: auto; align-items: flex-start; padding-top: 64px; padding-bottom: 64px; }
   .app-container > .terminal-panel { margin: auto; }
-  .app-container > .terminal-panel.room-panel { margin-bottom: 64px; }
 
   .launch-row { display: flex; gap: 10px; margin-top: 8px; }
   .launch-row .launch-btn { margin-top: 0; flex: 1; min-width: 0; padding-left: 8px; padding-right: 8px; }

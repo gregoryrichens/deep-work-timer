@@ -37,6 +37,8 @@ npm run dev                      # http://localhost:8787
 
 The room UI is behind a feature flag. Set `ROOMS_ENABLED = true` in [js/config.js](js/config.js) to show it; while it is `false`, the site is the solo timer only and `?room=` links open the solo timer.
 
+Rooms created locally are saved in `.wrangler/state` and survive restarts of the dev server. To delete them all, stop the server and run `npm run dev:clean`. The command refuses to run while the server is up.
+
 Run the tests with `npm test` (session, room client and server tests).
 
 ## Deploying and standalone use
@@ -64,6 +66,7 @@ deep-work-timer/
 │   ├── session.js                 # Pure session model
 │   ├── snack-sprite.js            # Theme palette swap for the exercise snack sprite
 │   └── timer.js                   # Timer state and lifecycle
+├── scripts/                       # Local development helpers
 ├── server/src/                    # Cloudflare Worker + Durable Object (rooms)
 ├── dist/
 │   └── deep-work-timer.html       # Optional standalone artifact

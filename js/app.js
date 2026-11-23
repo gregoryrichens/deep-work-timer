@@ -85,7 +85,7 @@ function renderJoin() {
     else if (st === 'authRequired') msg = '<div class="room-msg">// THIS ROOM IS PASSWORD PROTECTED</div>';
     else if (busy) msg = '<div class="room-msg">// CONNECTING...</div>';
     body = '<form id="join-form" novalidate>' +
-      '<div class="config-section"><label class="config-label" for="join-name">Display Name</label>' +
+      '<div class="config-section"><label class="config-label" for="join-name">User Profile</label>' +
       '<input type="text" class="text-input" id="join-name" maxlength="24" autocomplete="nickname" placeholder="1–24 characters" value="' + esc(S.joinName) + '"' + (busy ? ' readonly' : '') + '></div>' +
       (needPass
         ? '<div class="config-section"><label class="config-label" for="join-pass">Room Password</label>' +
@@ -126,7 +126,7 @@ function bindJoin() {
 function submitJoin() {
   captureJoinInputs();
   var name = RoomHelpers.validName(S.joinName);
-  if (!name) { S.joinError = '// NAME MUST BE 1–24 CHARACTERS'; render(); return; }
+  if (!name) { S.joinError = '// USER PROFILE MUST BE 1–24 CHARACTERS'; render(); return; }
   var needPass = Room.status === 'authRequired' || Room.status === 'authFailed';
   if (needPass && !S.joinPass) { S.joinError = '// ENTER THE ROOM PASSWORD'; render(); return; }
   S.joinError = null;
