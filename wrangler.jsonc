@@ -3,8 +3,8 @@
   "main": "server/src/index.js",
   // Newest date supported by the pinned wrangler and vitest workerd versions.
   "compatibility_date": "2026-08-22",
-  // One Worker serves both the static site and the room API. Files in .assetsignore are not served.
-  "assets": { "directory": "./", "binding": "ASSETS" },
+  // One Worker serves both the static site (everything in public/) and the room API.
+  "assets": { "directory": "./public", "binding": "ASSETS" },
   "durable_objects": {
     "bindings": [
       { "name": "ROOMS", "class_name": "Room" },

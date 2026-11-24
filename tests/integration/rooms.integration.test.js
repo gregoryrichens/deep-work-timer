@@ -4,13 +4,13 @@
 // Needs Node >= 22 (built-in WebSocket with a non-standard `headers` option for Origin).
 // Room creation is rate limited (5/hour/IP). A run creates 3 rooms; to rerun more than once an hour,
 // stop wrangler, `rm -rf .wrangler/state`, and start it again.
-// Note: `wrangler dev` serves the repo root as assets and live-reloads on any file change (including .git
-// writes), which drops sockets mid-test. If the handoff test flakes, run wrangler from a quiet copy of the repo.
+// Note: `wrangler dev` live-reloads when anything under public/ or server/ changes, which drops sockets
+// mid-test. Do not edit those files while the handoff test runs.
 // The host-handoff test waits ~31s of real time (HANDOFF_MS = 30s on the server).
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const SessionModel = require('../../js/session.js');
+const SessionModel = require('../../public/js/session.js');
 
 const BASE = process.env.BASE_URL || 'http://localhost:8787';
 const ORIGIN = process.env.ORIGIN || 'http://localhost:8787';

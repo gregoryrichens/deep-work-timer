@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const SM = require('../js/session.js');
+const SM = require('../public/js/session.js');
 
 const W52 = 3120000, R52 = 1020000, A = 10000;
 const T52 = W52 + A + R52 + A;
