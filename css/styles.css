@@ -268,8 +268,9 @@
     transition: all 0.25s ease; flex-shrink: 0;
   }
   .checkbox-container.checked .custom-checkbox { border-color: var(--pip-bright); background: rgba(255,255,255,0.1); }
+  .mode-btn.active .custom-checkbox { border-color: var(--pip-bright); background: var(--pip-faint); }
   .check-mark { color: var(--pip-bright); font-size: 13px; opacity: 0; transition: opacity 0.2s ease; }
-  .checkbox-container.checked .check-mark { opacity: 1; }
+  .checkbox-container.checked .check-mark, .mode-btn.active .check-mark { opacity: 1; }
   .checkbox-text { font-family: 'Rajdhani', sans-serif; font-size: 0.85rem; font-weight: 500; }
   .checkbox-text small { font-size: 0.65rem; opacity: 0.5; display: block; margin-top: 2px; }
 
@@ -474,11 +475,8 @@
   .launch-row { display: flex; gap: 10px; margin-top: 8px; }
   .launch-row .launch-btn { margin-top: 0; flex: 1; min-width: 0; padding-left: 8px; padding-right: 8px; }
   .launch-btn:disabled { opacity: 0.5; cursor: default; }
-  .launch-btn.room-btn { background: transparent; border-color: var(--pip-dim); color: var(--pip-primary); }
-  .launch-btn.room-btn:hover:not(:disabled) { border-color: var(--pip-bright); color: var(--pip-bright); }
 
-  .room-create { margin-top: 12px; }
-  .room-status, .room-msg {
+  .room-msg {
     font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; letter-spacing: 2px;
     color: var(--pip-bright); text-transform: uppercase; margin: 10px 0; min-height: 1em;
   }
@@ -487,7 +485,6 @@
     display: block; font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 0.7rem;
     letter-spacing: 3px; text-transform: uppercase; color: var(--pip-dim); margin-bottom: 6px;
   }
-  .field-label .opt { letter-spacing: 1px; opacity: 0.7; text-transform: none; }
   .text-input {
     width: 100%; background: rgba(0,0,0,0.35); border: 1px solid var(--pip-dim);
     color: var(--pip-bright); font-family: 'Share Tech Mono', monospace; font-size: 1rem;
@@ -496,11 +493,6 @@
   }
   .text-input:focus { border-color: var(--pip-bright); box-shadow: 0 0 10px var(--pip-glow); }
   .text-input.small { width: 9em; padding: 4px 8px; font-size: 0.8rem; }
-  .link-btn {
-    background: none; border: none; color: var(--pip-dim); cursor: pointer;
-    font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; letter-spacing: 1px; padding: 4px 0;
-  }
-  .link-btn:hover { color: var(--pip-primary); }
   .join-panel { padding-top: 6px; }
   .join-panel .launch-btn { margin-top: 4px; }
 
@@ -527,8 +519,6 @@
   }
   @keyframes connPulse { 50% { opacity: 0.45; } }
 
-  .room-mode { margin-bottom: 14px; }
-  .room-mode .mode-btn { padding: 10px 6px; }
   .progress-track.locked { cursor: default; }
   .progress-track.locked:hover { border-color: rgba(255,255,255,0.08); }
   .host-note { color: var(--pip-dim); }
@@ -567,6 +557,70 @@
     font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; letter-spacing: 1px;
     padding: 6px 12px; border-radius: 2px; box-shadow: 0 0 12px var(--pip-glow);
     animation: fadeIn 0.3s ease; max-width: 100%; overflow-wrap: anywhere;
+  }
+
+
+  /* ===== ROOM FLOW: tabs, option cards, summaries ===== */
+  .tabs { display: flex; margin: 4px 0 16px; border-bottom: 1px solid var(--pip-dim); }
+  .header + .tabs { margin-top: -10px; }
+  .tab {
+    flex: 1; background: transparent; border: 0; border-bottom: 3px solid transparent;
+    color: var(--pip-dim); font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 0.8rem;
+    letter-spacing: 4px; text-transform: uppercase; padding: 12px 6px; cursor: pointer; transition: all 0.25s ease;
+  }
+  .tab:hover { color: var(--pip-primary); background: var(--pip-faint); }
+  .tab.active { color: var(--pip-bright); border-bottom-color: var(--pip-bright); background: var(--pip-faint); text-shadow: 0 0 8px var(--pip-glow); }
+
+  /* Hang every tab from the top edge the tallest one (create) would have when centered, so the tab bar stays put. */
+  .app-container > .terminal-panel.tabbed { margin: max(0px, calc(50vh - 441px)) auto auto; }
+
+  .room-heading {
+    font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.3rem; letter-spacing: 6px;
+    text-transform: uppercase; color: var(--pip-bright); margin: 4px 0 18px;
+    text-shadow: 0 0 8px var(--pip-glow), 0 0 25px var(--pip-glow);
+  }
+  .room-heading.center { text-align: center; }
+  .ready-title {
+    text-align: center; font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1.1rem;
+    letter-spacing: 8px; text-transform: uppercase; color: var(--pip-bright); margin: 4px 0 16px;
+  }
+
+  .opt-input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: -1px; overflow: hidden; pointer-events: none; }
+  .opt-card, .checkbox-container { position: relative; }
+  .opt-card { display: flex; align-items: center; gap: 12px; text-align: left; }
+  .opt-card .opt-body { display: block; flex: 1; min-width: 0; text-align: center; }
+  .opt-card.access-card .opt-body { text-align: left; font-size: 0.9rem; }
+  .opt-card:has(.opt-input:focus-visible), .checkbox-container:has(.opt-input:focus-visible) {
+    outline: 2px solid var(--pip-bright); outline-offset: 3px;
+  }
+  .config-section .text-input + .checkbox-container { margin-top: 10px; }
+  .pass-label { margin-top: 12px; }
+
+  .summary-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 14px; margin-bottom: 10px; border: 1px solid var(--pip-dim);
+    border-radius: 2px; background: var(--pip-faint);
+  }
+  .summary-time { flex: 1; text-align: center; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1rem; color: var(--pip-bright); }
+  .join-info {
+    margin: 0 0 22px; padding: 14px; text-align: center; border: 1px solid var(--pip-primary);
+    border-radius: 2px; background: var(--pip-faint); box-shadow: 0 0 12px var(--pip-glow);
+  }
+  .join-code {
+    display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;
+    font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; letter-spacing: 2px;
+  }
+  .join-status {
+    margin-top: 8px; font-family: 'Rajdhani', sans-serif; font-size: 0.75rem;
+    letter-spacing: 4px; text-transform: uppercase; color: var(--pip-dim);
+  }
+
+  @media (max-width: 480px) {
+    .mode-selector[role="radiogroup"] { flex-direction: column; }
+    .tab { font-size: 0.65rem; letter-spacing: 1px; padding: 10px 2px; }
+    .room-heading { font-size: 1.05rem; letter-spacing: 3px; }
+    .ready-title { letter-spacing: 5px; }
+    .summary-time { font-size: 0.85rem; }
   }
 
   @media (max-width: 600px) {

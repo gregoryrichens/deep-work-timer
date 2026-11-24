@@ -147,3 +147,31 @@ test('transitions do not mutate inputs and return new objects', () => {
   SM.schedule('52/17')[0].durationMs = 1;
   assert.strictEqual(SM.schedule('52/17')[0].durationMs, W52);
 });
+
+test('status separates waiting from a started session that is paused', () => {
+  const waiting = SM.initialTimer();
+  const running = SM.start(waiting, '52/17', 1000);
+  const paused = SM.pause(running, '52/17', 61000);
+  assert.strictEqual(SM.status(waiting, '52/17', 1000), 'waiting');
+  assert.strictEqual(SM.status(running, '52/17', 2000), 'running');
+  assert.strictEqual(SM.status(paused, '52/17', 99000), 'paused');
+  const finished = { anchorAt: 0, offsetMs: 0, paused: false };
+  assert.strictEqual(SM.status(finished, '52/17', T52 + 1), 'done');
+});
+
+test('status treats a scrubbed but never started timer as started', () => {
+  const scrubbed = SM.scrub(SM.initialTimer(), '52/17', 5000, 1000);
+  assert.strictEqual(scrubbed.paused, true);
+  assert.strictEqual(SM.status(scrubbed, '52/17', 2000), 'paused');
+});
+
+test('clockSeconds: countdown shows time left, count-up time elapsed', () => {
+  assert.strictEqual(SM.clockSeconds('work', 3120, 0, true), 3120);
+  assert.strictEqual(SM.clockSeconds('work', 3120, 1, true), 3119);
+  assert.strictEqual(SM.clockSeconds('rest', 1020, 1020, true), 0);
+  assert.strictEqual(SM.clockSeconds('work', 3120, 1, false), 1);
+  assert.strictEqual(SM.clockSeconds('alarm', 3120, 3120, true), 0);
+  assert.strictEqual(SM.clockSeconds('alarm', 3120, 3120, false), 3120);
+  assert.strictEqual(SM.clockSeconds('done', 1020, 1020, true), 0);
+  assert.strictEqual(SM.clockSeconds('done', 1020, 1020, false), 1020);
+});

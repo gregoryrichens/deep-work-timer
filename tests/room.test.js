@@ -117,3 +117,53 @@ test('clientIdFromBytes yields a server-valid id', () => {
   assert.ok(H.isValidClientId(id));
   assert.ok(!H.isValidClientId('short'));
 });
+
+test('parseRoomInput accepts a link, a query string or a bare id', () => {
+  const id = 'abc123.tozyd1.NhhnVC2FVoYhXiOa';
+  assert.strictEqual(H.parseRoomInput('https://example.com/?room=' + id), id);
+  assert.strictEqual(H.parseRoomInput('  http://localhost:8787/?room=' + id + '#x  '), id);
+  assert.strictEqual(H.parseRoomInput('?room=' + id), id);
+  assert.strictEqual(H.parseRoomInput(id), id);
+  assert.strictEqual(H.parseRoomInput('https://example.com/no-room'), null);
+  assert.strictEqual(H.parseRoomInput('not a room id'), null);
+  assert.strictEqual(H.parseRoomInput(''), null);
+  assert.strictEqual(H.parseRoomInput(null), null);
+});
+
+test('joinStatusLabel names the live session state', () => {
+  assert.strictEqual(H.joinStatusLabel('waiting'), 'WAITING FOR HOST');
+  assert.strictEqual(H.joinStatusLabel('running'), 'IN PROGRESS');
+  assert.strictEqual(H.joinStatusLabel('paused'), 'PAUSED');
+  assert.strictEqual(H.joinStatusLabel('done'), 'COMPLETE');
+  assert.strictEqual(H.joinStatusLabel('nonsense'), '');
+});
+
+test('validateRoomForm: name, and a password only when access needs one', () => {
+  const ok = { name: 'Sam', access: 'link', pass: '' };
+  assert.strictEqual(H.validateRoomForm(ok, false), null);
+  assert.ok(H.validateRoomForm({ name: '  ', access: 'link', pass: '' }, false).indexOf('DISPLAY NAME') !== -1);
+  assert.ok(H.validateRoomForm({ name: 'x'.repeat(25), access: 'link', pass: '' }, false).indexOf('DISPLAY NAME') !== -1);
+  // a password typed while access is "link" is ignored
+  assert.strictEqual(H.validateRoomForm({ name: 'Sam', access: 'link', pass: 'a' }, false), null);
+  assert.ok(H.validateRoomForm({ name: 'Sam', access: 'password', pass: '' }, false).indexOf('PASSWORD') !== -1);
+  assert.ok(H.validateRoomForm({ name: 'Sam', access: 'password', pass: 'abc' }, false).indexOf('PASSWORD') !== -1);
+  assert.strictEqual(H.validateRoomForm({ name: 'Sam', access: 'password', pass: 'abcd' }, false), null);
+  // an already protected room keeps its password when the field is blank, but a typed one must be valid
+  assert.strictEqual(H.validateRoomForm({ name: 'Sam', access: 'password', pass: '' }, true), null);
+  assert.ok(H.validateRoomForm({ name: 'Sam', access: 'password', pass: 'abc' }, true).indexOf('PASSWORD') !== -1);
+});
+
+test('planRoomEdit only sends what changed, on the same room', () => {
+  const room = { mode: '52/17', protected: false, name: 'Sam' };
+  const same = { mode: '52/17', name: 'Sam', access: 'link', pass: '' };
+  assert.deepStrictEqual(H.planRoomEdit(room, same), []);
+  assert.deepStrictEqual(H.planRoomEdit(room, Object.assign({}, same, { mode: '112/26' })), [{ type: 'setMode', payload: { mode: '112/26' } }]);
+  assert.deepStrictEqual(H.planRoomEdit(room, Object.assign({}, same, { name: '  Alex ' })), [{ type: 'setName', payload: { name: 'Alex' } }]);
+  assert.deepStrictEqual(H.planRoomEdit(room, Object.assign({}, same, { access: 'password', pass: 'secret12' })),
+    [{ type: 'setPassword', payload: { password: 'secret12' } }]);
+  const locked = { mode: '52/17', protected: true, name: 'Sam' };
+  assert.deepStrictEqual(H.planRoomEdit(locked, Object.assign({}, same, { access: 'password', pass: '' })), []);
+  assert.deepStrictEqual(H.planRoomEdit(locked, same), [{ type: 'setPassword', payload: { password: null } }]);
+  assert.deepStrictEqual(H.planRoomEdit(locked, Object.assign({}, same, { access: 'password', pass: 'newpass1', mode: '112/26' })),
+    [{ type: 'setMode', payload: { mode: '112/26' } }, { type: 'setPassword', payload: { password: 'newpass1' } }]);
+});

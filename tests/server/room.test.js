@@ -675,3 +675,112 @@ describe('password protection', () => {
     expect((await h2.next('welcome')).hostClientId).toBe(cid(1));
   });
 });
+
+describe('room info for the join screen', () => {
+  async function getInfo(roomId, method) {
+    const res = await exports.default.fetch('http://localhost:8787/api/rooms/' + encodeURIComponent(roomId), {
+      method: method || 'GET', headers: { 'CF-Connecting-IP': freshIp() }
+    });
+    return { status: res.status, json: await res.json().catch(() => null) };
+  }
+
+  it('describes a room nobody has entered without writing anything', async () => {
+    const { roomId } = await mk();
+    const r = await getInfo(roomId);
+    expect(r.status).toBe(200);
+    expect(r.json).toEqual({ mode: '52/17', status: 'waiting', protected: false });
+    await runInDurableObject(stubFor(roomId), async (_i, state) => {
+      expect((await state.storage.list()).size).toBe(0);
+    });
+  });
+
+  it('follows the session: protocol, running, paused, done', async () => {
+    const { roomId } = await mk();
+    const host = await jn(roomId, 1);
+    await host.next('welcome');
+    host.send({ type: 'setMode', mode: '112/26' });
+    await host.next('timer');
+    expect((await getInfo(roomId)).json).toEqual({ mode: '112/26', status: 'waiting', protected: false });
+    host.send({ type: 'start' });
+    await host.next('timer');
+    expect((await getInfo(roomId)).json.status).toBe('running');
+    host.send({ type: 'pause' });
+    await host.next('timer');
+    expect((await getInfo(roomId)).json.status).toBe('paused');
+    host.send({ type: 'resume' });
+    await host.next('timer');
+    advance(SessionModel.totalMs('112/26') + 1000);
+    expect((await getInfo(roomId)).json.status).toBe('done');
+  });
+
+  it('says whether a password is needed, without needing one to ask', async () => {
+    const { roomId } = await mk('secret-pass');
+    const r = await getInfo(roomId);
+    expect(r.status).toBe(200);
+    expect(r.json).toEqual({ mode: '52/17', status: 'waiting', protected: true });
+  });
+
+  it('answers 404 for ids that were never issued and 405 for other methods', async () => {
+    const { roomId } = await mk();
+    const parts = roomId.split('.');
+    for (const id of ['garbage', parts[0] + '.' + parts[1] + '.' + 'A'.repeat(16)]) {
+      expect((await getInfo(id)).status).toBe(404);
+    }
+    expect((await getInfo(roomId, 'POST')).status).toBe(405);
+    const res = await exports.default.fetch('http://localhost:8787/api/rooms/%E0%A4%A', { headers: { 'CF-Connecting-IP': freshIp() } });
+    expect(res.status).toBe(404);
+  });
+
+  it('answers 410 once the room has expired', async () => {
+    const { roomId } = await mk();
+    advance(2 * 3600 * 1000 + 1000);
+    const r = await getInfo(roomId);
+    expect(r.status).toBe(410);
+    expect(r.json).toEqual({ error: 'expired' });
+  });
+});
+
+describe('renaming', () => {
+  async function renamed(client, name) {
+    return client.waitFor(() => client.queue.find((m) => m.type === 'members' && m.members.some((x) => x.name === name)), 'roster with ' + name);
+  }
+
+  it('lets any member rename themselves and tells everyone', async () => {
+    const { roomId } = await mk();
+    const host = await jn(roomId, 1);
+    await host.next('welcome');
+    const guest = await jn(roomId, 2);
+    await guest.next('welcome');
+    guest.send({ type: 'setName', name: '  Alex  ' });
+    const seen = await renamed(host, 'Alex');
+    expect(seen.members.map((m) => m.name)).toEqual(['User1', 'Alex']);
+    expect(host.noMessage('error')).toBe(true);
+    host.send({ type: 'setName', name: 'Boss' });
+    await renamed(guest, 'Boss');
+  });
+
+  it('keeps the new name across a reconnect of the roster', async () => {
+    const { roomId } = await mk();
+    const host = await jn(roomId, 1);
+    await host.next('welcome');
+    host.send({ type: 'setName', name: 'Renamed' });
+    await renamed(host, 'Renamed');
+    await runInDurableObject(stubFor(roomId), async (_i, state) => {
+      const st = await state.storage.get('state');
+      expect(st.members[cid(1)].name).toBe('Renamed');
+    });
+  });
+
+  it('rejects empty, oversize and control-character names', async () => {
+    const { roomId } = await mk();
+    const host = await jn(roomId, 1);
+    await host.next('welcome');
+    // four violations: the fifth would disconnect the socket
+    for (const name of ['   ', 'x'.repeat(25), 'bad\u0007name', 42]) {
+      host.send({ type: 'setName', name });
+      await host.nextError('badMessage');
+    }
+    host.send({ type: 'ping', t: 1 });
+    await host.next('pong');
+  });
+});

@@ -61,6 +61,19 @@ var RoomHelpers = (function() {
     return isValidRoomId(id) ? id : null;
   }
 
+  // A room id from pasted text: an invite link, a query string, or the bare id. Null when there is none.
+  function parseRoomInput(text) {
+    var s = String(text === null || text === undefined ? '' : text).trim();
+    var q = s.indexOf('?');
+    if (q !== -1) return parseRoomId(s.slice(q));
+    return isValidRoomId(s) ? s : null;
+  }
+
+  // What a guest sees about the session before joining. `status` is SessionModel.status().
+  function joinStatusLabel(status) {
+    return ({ waiting: 'WAITING FOR HOST', running: 'IN PROGRESS', paused: 'PAUSED', done: 'COMPLETE' })[status] || '';
+  }
+
   // Rooms need the feature flag on (strictly true) and a page served over http(s).
   function roomsEnabled(flag, protocol) {
     return flag === true && (protocol === 'http:' || protocol === 'https:');
@@ -93,6 +106,29 @@ var RoomHelpers = (function() {
     return typeof p === 'string' && p.length >= 4 && p.length <= 64;
   }
 
+  // Error text for a room form ({ name, access, pass }), or null when it can be submitted.
+  // keepsPassword: the room is already protected, so a blank password keeps the current one.
+  function validateRoomForm(form, keepsPassword) {
+    if (!validName(form.name)) return '// DISPLAY NAME MUST BE 1–24 CHARACTERS';
+    if (form.access === 'password') {
+      var keepsCurrent = keepsPassword && form.pass === '';
+      if (!keepsCurrent && !validPassword(form.pass)) return '// PASSWORD MUST BE 4–64 CHARACTERS';
+    }
+    return null;
+  }
+
+  // The messages that bring an existing room in line with an edited form.
+  // room: { mode, protected, name }; form: { mode, name, access, pass }. Assumes the form is valid.
+  function planRoomEdit(room, form) {
+    var steps = [];
+    if (form.mode !== room.mode) steps.push({ type: 'setMode', payload: { mode: form.mode } });
+    if (form.access === 'link' && room.protected) steps.push({ type: 'setPassword', payload: { password: null } });
+    if (form.access === 'password' && form.pass !== '') steps.push({ type: 'setPassword', payload: { password: form.pass } });
+    var name = validName(form.name);
+    if (name !== room.name) steps.push({ type: 'setName', payload: { name: name } });
+    return steps;
+  }
+
   function clientIdFromBytes(bytes) {
     var out = '';
     for (var i = 0; i < 16; i++) out += ID_CHARS.charAt(bytes[i % bytes.length] & 63);
@@ -112,8 +148,10 @@ var RoomHelpers = (function() {
     escapeHtml: escapeHtml, estimateOffset: estimateOffset, betterSample: betterSample,
     backoffDelay: backoffDelay, awayMinutes: awayMinutes, formatAway: formatAway,
     statusLabel: statusLabel, statusClass: statusClass,
-    roomsEnabled: roomsEnabled, parseRoomId: parseRoomId, isValidRoomId: isValidRoomId, shortRoomCode: shortRoomCode,
+    roomsEnabled: roomsEnabled, parseRoomId: parseRoomId, parseRoomInput: parseRoomInput, joinStatusLabel: joinStatusLabel,
+    isValidRoomId: isValidRoomId, shortRoomCode: shortRoomCode,
     wsUrl: wsUrl, shouldReconnect: shouldReconnect, validName: validName, validPassword: validPassword,
+    validateRoomForm: validateRoomForm, planRoomEdit: planRoomEdit,
     clientIdFromBytes: clientIdFromBytes, isValidClientId: isValidClientId,
     leavesTimerScreen: leavesTimerScreen
   };

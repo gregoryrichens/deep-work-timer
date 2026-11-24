@@ -87,6 +87,17 @@ export class Room extends DurableObject {
     return true;
   }
 
+  // ---- RPC: called by the Worker for the join screen. Reads only; null when the room has expired ----
+  async info(createdAt) {
+    const st = this.state;
+    const now = Date.now();
+    if (!st) {
+      return now - createdAt >= ROOM_TTL_MS ? null : { mode: '52/17', status: 'waiting', protected: false };
+    }
+    if ((st.cleanupAt && now >= st.cleanupAt) || (!st.entered && now >= st.createdAt + ROOM_TTL_MS)) return null;
+    return { mode: st.mode, status: SessionModel.status(st.timer, st.mode, now), protected: !!st.password };
+  }
+
   // ---- WebSocket entry ----------------------------------------------------------------
   async fetch(request) {
     if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
@@ -349,6 +360,8 @@ export class Room extends DurableObject {
       return;
     }
 
+    if (type === 'setName') return this.onSetName(ws, att, msg);
+
     const controls = ['start', 'resume', 'pause', 'reset', 'scrub', 'setMode', 'setPassword'];
     if (controls.indexOf(type) === -1) return this.violate(ws, att, 'badMessage', 'Unknown message type');
     if (att.clientId !== st.hostClientId) return this.sendError(ws, 'notHost', 'Only the host can do that');
@@ -386,6 +399,20 @@ export class Room extends DurableObject {
     this.broadcast(this.timerMessage());
     this.broadcastMembers(false);
     await this.reschedule();
+  }
+
+  // Any member may rename themselves.
+  async onSetName(ws, att, msg) {
+    const st = this.state;
+    const name = typeof msg.name === 'string' ? msg.name.trim() : '';
+    if (name.length < 1 || name.length > 24 || CONTROL_CHARS_RE.test(name)) {
+      return this.violate(ws, att, 'badMessage', 'Invalid name');
+    }
+    const member = st.members[att.clientId];
+    if (!member || member.name === name) return;
+    member.name = name;
+    await this.save();
+    this.broadcastMembers(true);
   }
 
   async onSetPassword(ws, att, msg, now) {

@@ -88,6 +88,16 @@ async function createRoom(request, env) {
   return json(201, { roomId, sessionToken });
 }
 
+// Read-only summary for the join screen: protocol, session status and whether a password is needed.
+// Needs a valid signed room id, so it reveals nothing about rooms that were never issued.
+async function roomInfo(env, roomId) {
+  const parsed = await verifyRoomId(env.ROOM_SECRET, roomId);
+  if (!parsed || parsed.createdAtSec > Date.now() / 1000 + FUTURE_SKEW_SEC) return json(404, { error: 'notFound' });
+  const stub = env.ROOMS.get(env.ROOMS.idFromName(parsed.random));
+  const info = await stub.info(parsed.createdAtSec * 1000);
+  return info ? json(200, info) : json(410, { error: 'expired' });
+}
+
 async function roomSocket(request, env, roomId) {
   if (request.method !== 'GET' || (request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
     return new Response('Expected WebSocket', { status: 426 });
@@ -110,6 +120,12 @@ export default {
     if (url.pathname === '/api/rooms') {
       if (request.method !== 'POST') return json(405, { error: 'methodNotAllowed' });
       return createRoom(request, env);
+    }
+    if (url.pathname.startsWith('/api/rooms/')) {
+      if (request.method !== 'GET') return json(405, { error: 'methodNotAllowed' });
+      let roomId;
+      try { roomId = decodeURIComponent(url.pathname.slice('/api/rooms/'.length)); } catch (e) { return json(404, { error: 'notFound' }); }
+      return roomInfo(env, roomId);
     }
     if (url.pathname.startsWith('/rooms/')) {
       return roomSocket(request, env, url.pathname.slice('/rooms/'.length));

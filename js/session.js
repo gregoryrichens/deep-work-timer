@@ -79,6 +79,21 @@ var SessionModel = (function() {
     return view(mode, elapsedMs(timer, nowMs, mode));
   }
 
+  // 'waiting' until the session has started, then 'running', 'paused' or 'done'.
+  function status(timer, mode, nowMs) {
+    if (!isStarted(timer)) return 'waiting';
+    if (viewNow(timer, mode, nowMs).phase === 'done') return 'done';
+    return timer.paused ? 'paused' : 'running';
+  }
+
+  // Seconds shown on the clock. A countdown shows the time left in the phase, a count-up the time elapsed.
+  // The alarm and done phases show a finished phase: nothing left, or the full phase.
+  function clockSeconds(phase, totalSec, elapsedSec, countdown) {
+    var inPhase = phase === 'work' || phase === 'rest';
+    if (countdown) return inPhase ? Math.max(0, totalSec - elapsedSec) : 0;
+    return inPhase ? elapsedSec : totalSec;
+  }
+
   function start(timer, mode, nowMs) {
     if (!timer.paused) return timer;
     if (viewNow(timer, mode, nowMs).phase === 'done') return timer;
@@ -110,7 +125,7 @@ var SessionModel = (function() {
   return {
     ALARM_MS: ALARM_MS, MODES: MODES,
     schedule: schedule, totalMs: totalMs, initialTimer: initialTimer,
-    elapsedMs: elapsedMs, view: view, isStarted: isStarted,
+    elapsedMs: elapsedMs, view: view, isStarted: isStarted, status: status, clockSeconds: clockSeconds,
     start: start, pause: pause, scrub: scrub, reset: reset
   };
 })();

@@ -9,8 +9,11 @@ var S = {
   snackTimeout: null, triggeredSnacks: {}, dragging: false,
   // room mode (roomId null = solo); the rest is UI state for the room screens (see app.js)
   roomId: null, pendingMode: null, scrubMs: null,
-  creating: false, showRoomPass: false, roomPass: '', createMsg: '',
-  joinName: '', joinPass: '', joinError: null, passEdit: false
+  // Settings form shared by the solo, create and edit screens, so values survive switching between them.
+  configTab: 'solo',
+  cfg: { mode: '52/17', snacks: false, name: '', access: 'link', pass: '', link: '' },
+  creating: false, createMsg: '', createError: false,
+  roomInfo: null, joinPass: '', joinError: null, passEdit: false
 };
 
 // Seams for the room client: swap the clock (local vs server-corrected) and the timer source
@@ -27,6 +30,8 @@ function roomSend(type, payload) { if (!Room.send(type, payload)) toast('// NOT 
 function modeCfg() { return SessionModel.MODES[S.mode]; }
 function snackMins() { return modeCfg().snackMins; }
 function fmt(sec) { return String(Math.floor(sec/60)).padStart(2,'0') + ':' + String(sec%60).padStart(2,'0'); }
+// Solo counts up; a room counts down, so it shows the full focus time before Play.
+function clockSeconds() { return SessionModel.clockSeconds(S.phase, S.totalSeconds, S.elapsedSeconds, isRoom()); }
 
 // Derive the view fields of S from the timer object and the clock. Returns the SessionModel view.
 function derive() {
@@ -78,7 +83,7 @@ function checkExerciseSnacks(phase, elapsedSeconds) {
 function tick() {
   var el = document.getElementById('timer-text');
   var fill = document.getElementById('progress-fill');
-  if (el) el.textContent = fmt(S.elapsedSeconds);
+  if (el) el.textContent = fmt(clockSeconds());
   var pct = S.totalSeconds > 0 ? (S.elapsedSeconds / S.totalSeconds) * 100 : 0;
   if (fill) fill.style.width = pct + '%';
   var track = document.getElementById('progress-track');
@@ -181,6 +186,7 @@ function startTimer() {
 }
 
 function launch() {
+  S.mode = S.cfg.mode; S.exerciseSnacks = S.cfg.snacks;
   S.screen = 'timer';
   S.triggeredSnacks = {};
   applyTimer(SessionModel.reset());
@@ -267,6 +273,7 @@ function leaveRoom(updateHistory) {
   Room.leave();
   cancelTimerEvents();
   S.roomId = null; S.pendingMode = null; S.scrubMs = null; S.dragging = false;
+  S.creating = false; S.roomInfo = null;
   S.screen = 'config';
   applyTimer(SessionModel.reset());
   S.viewIndex = 0; lastDisplayedSecond = -1; S.triggeredSnacks = {};
