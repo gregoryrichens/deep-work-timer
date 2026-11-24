@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
-const H = require('../js/room.js');
+const H = require('../public/js/room.js');
 
 test('escapeHtml neutralises markup and quotes', () => {
   assert.strictEqual(H.escapeHtml('<img src=x onerror=alert(1)>'), '&lt;img src=x onerror=alert(1)&gt;');
@@ -64,8 +64,8 @@ test('roomsEnabled: flag on needs http(s)', () => {
   assert.strictEqual(H.roomsEnabled(true, 'file:'), false);
 });
 
-test('js/config.js defines ROOMS_ENABLED as a boolean', () => {
-  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../js/config.js'), 'utf8');
+test('public/js/config.js defines ROOMS_ENABLED as a boolean', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../public/js/config.js'), 'utf8');
   const ctx = {};
   require('node:vm').runInNewContext(src, ctx);
   assert.strictEqual(typeof ctx.ROOMS_ENABLED, 'boolean');

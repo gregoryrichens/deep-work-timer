@@ -17,9 +17,10 @@ A focused, single-page productivity timer built around two ultradian work/rest p
 
 ## Run locally
 
-The modular application is served from [index.html](index.html). Run it with any static file server:
+The modular application is served from [public/index.html](public/index.html). Run it with any static file server from the `public` directory:
 
 ```bash
+cd public
 python3 -m http.server 8000
 ```
 
@@ -35,7 +36,7 @@ cp .dev.vars.example .dev.vars   # then set ROOM_SECRET to the output of: openss
 npm run dev                      # http://localhost:8787
 ```
 
-The room UI is behind a feature flag. Set `ROOMS_ENABLED = true` in [js/config.js](js/config.js) to show it; while it is `false`, the site is the solo timer only and `?room=` links open the solo timer.
+The room UI is behind a feature flag. Set `ROOMS_ENABLED = true` in [public/js/config.js](public/js/config.js) to show it; while it is `false`, the site is the solo timer only and `?room=` links open the solo timer.
 
 Rooms created locally are saved in `.wrangler/state` and survive restarts of the dev server. To delete them all, stop the server and run `npm run dev:clean`. The command refuses to run while the server is up.
 
@@ -43,7 +44,7 @@ Run the tests with `npm test` (session, room client and server tests).
 
 ## Deploying and standalone use
 
-Deploy the repository root on any static host. The root `index.html` loads its assets using relative paths, so no build step or special routing is required.
+Deploy the `public` directory on any static host. Its `index.html` loads its assets using relative paths, so no build step or special routing is required.
 
 For a portable, single-file version, use [dist/deep-work-timer.html](dist/deep-work-timer.html). It embeds its styles and JavaScript, so it can be downloaded and opened directly in a modern browser. The standalone artifact is intentionally kept separate from the modular source: make feature changes in the source files first, then regenerate the artifact before release.
 
@@ -53,19 +54,20 @@ The solo timer can still be deployed on any static host. Shared rooms require de
 
 ```text
 deep-work-timer/
-├── index.html                     # Modular application entry point
-├── css/
-│   └── styles.css                 # Application styles
-├── assets/                         # Background images and exercise snack sprite
-├── js/
-│   ├── app.js                     # Rendering and event binding
-│   ├── audio.js                   # Web Audio notifications
-│   ├── config.js                  # Feature flags
-│   ├── dial.js                    # Theme dial interactions
-│   ├── room.js                    # Room client
-│   ├── session.js                 # Pure session model
-│   ├── snack-sprite.js            # Theme palette swap for the exercise snack sprite
-│   └── timer.js                   # Timer state and lifecycle
+├── public/                        # Everything the site serves
+│   ├── index.html                 # Modular application entry point
+│   ├── css/
+│   │   └── styles.css             # Application styles
+│   ├── assets/                    # Background images and exercise snack sprite
+│   └── js/
+│       ├── app.js                 # Rendering and event binding
+│       ├── audio.js               # Web Audio notifications
+│       ├── config.js              # Feature flags
+│       ├── dial.js                # Theme dial interactions
+│       ├── room.js                # Room client
+│       ├── session.js             # Pure session model
+│       ├── snack-sprite.js        # Theme palette swap for the exercise snack sprite
+│       └── timer.js               # Timer state and lifecycle
 ├── scripts/                       # Local development helpers
 ├── server/src/                    # Cloudflare Worker + Durable Object (rooms)
 ├── dist/
@@ -80,7 +82,7 @@ deep-work-timer/
 
 The timer derives elapsed time from the system clock rather than counting animation frames. This keeps sessions accurate when browsers throttle rendering in inactive tabs. The app is deliberately framework-free to keep the project portable and easy to inspect. JavaScript files are loaded in dependency order with `defer`, which preserves the app's existing browser support without requiring a bundler.
 
-The modular app stores background images in `assets/` so its HTML remains easy to navigate. The standalone artifact keeps those same images embedded as Base64 data URLs. This intentionally increases the artifact's file size, but ensures it can be shared or opened without an accompanying assets directory or external image requests.
+The modular app stores background images in `public/assets/` so its HTML remains easy to navigate. The standalone artifact keeps those same images embedded as Base64 data URLs. This intentionally increases the artifact's file size, but ensures it can be shared or opened without an accompanying assets directory or external image requests.
 
 ## Accessibility
 
