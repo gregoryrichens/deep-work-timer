@@ -1,0 +1,16 @@
+{
+  "name": "deep-work-timer",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:clean": "node scripts/clean-local-rooms.js",
+    "test": "node --test tests/session.test.js tests/room.test.js && vitest run",
+    "test:server": "vitest run",
+    "test:integration": "node --test tests/integration/rooms.integration.test.js"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.9.0",
+    "vitest": "4.1.12",
+    "wrangler": "4.155.0"
+  }
+}
