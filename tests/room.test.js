@@ -167,3 +167,34 @@ test('planRoomEdit only sends what changed, on the same room', () => {
   assert.deepStrictEqual(H.planRoomEdit(locked, Object.assign({}, same, { access: 'password', pass: 'newpass1', mode: '112/26' })),
     [{ type: 'setMode', payload: { mode: '112/26' } }, { type: 'setPassword', payload: { password: 'newpass1' } }]);
 });
+
+const PLAYLIST_ID = 'PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf';
+const PLAYLIST_LINK = 'https://www.youtube.com/playlist?list=' + PLAYLIST_ID;
+
+test('validateRoomForm: a playlist is optional, but must be a YouTube playlist link when given', () => {
+  const base = { name: 'Sam', access: 'link', pass: '' };
+  assert.strictEqual(H.validateRoomForm(base, false), null);
+  assert.strictEqual(H.validateRoomForm(Object.assign({ playlist: '' }, base), false), null);
+  assert.strictEqual(H.validateRoomForm(Object.assign({ playlist: '   ' }, base), false), null);
+  assert.strictEqual(H.validateRoomForm(Object.assign({ playlist: PLAYLIST_LINK }, base), false), null);
+  assert.ok(H.validateRoomForm(Object.assign({ playlist: 'https://evil.example/?list=' + PLAYLIST_ID }, base), false).indexOf('YOUTUBE') !== -1);
+  assert.ok(H.validateRoomForm(Object.assign({ playlist: 'javascript:alert(1)' }, base), false).indexOf('YOUTUBE') !== -1);
+  assert.ok(H.validateRoomForm(Object.assign({ playlist: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }, base), false).indexOf('NO PLAYLIST') !== -1);
+});
+
+test('planRoomEdit: sends setPlaylist only when the playlist changes, and null to clear it', () => {
+  const room = { mode: '52/17', protected: false, name: 'Sam', playlist: null };
+  const form = { mode: '52/17', name: 'Sam', access: 'link', pass: '' };
+  assert.deepStrictEqual(H.planRoomEdit(room, Object.assign({ playlist: '' }, form)), []);
+  assert.deepStrictEqual(H.planRoomEdit(room, form), []);
+  assert.deepStrictEqual(H.planRoomEdit(room, Object.assign({ playlist: PLAYLIST_LINK }, form)),
+    [{ type: 'setPlaylist', payload: { url: PLAYLIST_LINK } }]);
+
+  const withList = Object.assign({}, room, { playlist: PLAYLIST_ID });
+  assert.deepStrictEqual(H.planRoomEdit(withList, Object.assign({ playlist: PLAYLIST_LINK }, form)), []);
+  assert.deepStrictEqual(H.planRoomEdit(withList, Object.assign({ playlist: 'youtu.be/dQw4w9WgXcQ?list=' + PLAYLIST_ID }, form)), []);
+  assert.deepStrictEqual(H.planRoomEdit(withList, Object.assign({ playlist: '' }, form)),
+    [{ type: 'setPlaylist', payload: { url: null } }]);
+  assert.deepStrictEqual(H.planRoomEdit(withList, Object.assign({ playlist: 'https://www.youtube.com/playlist?list=PLanotherPlaylist123' }, form)),
+    [{ type: 'setPlaylist', payload: { url: 'https://www.youtube.com/playlist?list=PLanotherPlaylist123' } }]);
+});

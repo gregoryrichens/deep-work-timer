@@ -8,10 +8,10 @@ var S = {
   running: false, paused: false, rafId: null,
   snackTimeout: null, triggeredSnacks: {}, dragging: false,
   // room mode (roomId null = solo); the rest is UI state for the room screens (see app.js)
-  roomId: null, pendingMode: null, scrubMs: null,
+  roomId: null, pendingMode: null, pendingPlaylist: '', scrubMs: null,
   // Settings form shared by the solo, create and edit screens, so values survive switching between them.
   configTab: 'solo',
-  cfg: { mode: '52/17', snacks: false, name: '', access: 'link', pass: '', link: '' },
+  cfg: { mode: '52/17', snacks: false, name: '', access: 'link', pass: '', link: '', playlist: '' },
   creating: false, createMsg: '', createError: false,
   roomInfo: null, joinPass: '', joinError: null, passEdit: false
 };
@@ -272,7 +272,7 @@ function setupDrag() {
 function leaveRoom(updateHistory) {
   Room.leave();
   cancelTimerEvents();
-  S.roomId = null; S.pendingMode = null; S.scrubMs = null; S.dragging = false;
+  S.roomId = null; S.pendingMode = null; S.pendingPlaylist = ''; S.scrubMs = null; S.dragging = false;
   S.creating = false; S.roomInfo = null;
   S.screen = 'config';
   applyTimer(SessionModel.reset());
