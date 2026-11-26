@@ -9,6 +9,7 @@
 //  - storage is only written at creation (init RPC) or after the first valid hello.
 import { DurableObject } from 'cloudflare:workers';
 import SessionModel from './session-model.js';
+import PlaylistLink from './playlist.js';
 import { verifyPassword, hashPassword, parseIterations, generateToken, hashToken } from './crypto.js';
 
 const SEC = 1000;
@@ -54,6 +55,7 @@ function newState(createdAt) {
     hostClientId: null,
     members: {}, // clientId -> { name, joinedAt, disconnectedAt }
     password: null, // { hash, salt, iterations }
+    playlist: null, // YouTube playlist ID; rooms saved before this field existed read as null
     sessions: {}, // tokenHash -> { clientId|null, at }
     attempts: { ips: {}, hourStart: 0, hourCount: 0 },
     handoffAt: null,
@@ -362,11 +364,12 @@ export class Room extends DurableObject {
 
     if (type === 'setName') return this.onSetName(ws, att, msg);
 
-    const controls = ['start', 'resume', 'pause', 'reset', 'scrub', 'setMode', 'setPassword'];
+    const controls = ['start', 'resume', 'pause', 'reset', 'scrub', 'setMode', 'setPassword', 'setPlaylist'];
     if (controls.indexOf(type) === -1) return this.violate(ws, att, 'badMessage', 'Unknown message type');
     if (att.clientId !== st.hostClientId) return this.sendError(ws, 'notHost', 'Only the host can do that');
 
     if (type === 'setPassword') return this.onSetPassword(ws, att, msg, now);
+    if (type === 'setPlaylist') return this.onSetPlaylist(ws, att, msg);
 
     const mode = st.mode;
     const timer = st.timer;
@@ -413,6 +416,22 @@ export class Room extends DurableObject {
     member.name = name;
     await this.save();
     this.broadcastMembers(true);
+  }
+
+  // The host sends whatever was pasted (or null to clear it). The server finds the playlist ID itself,
+  // stores only that ID, and tells members the ID, never the pasted text.
+  async onSetPlaylist(ws, att, msg) {
+    const st = this.state;
+    let id = null;
+    if (msg.url !== null) {
+      const parsed = PlaylistLink.parse(msg.url);
+      if (!parsed.ok) return this.violate(ws, att, 'badMessage', 'Bad playlist');
+      id = parsed.id;
+    }
+    if ((st.playlist || null) === id) return;
+    st.playlist = id;
+    await this.save();
+    this.broadcast({ type: 'playlist', playlist: id });
   }
 
   async onSetPassword(ws, att, msg, now) {
@@ -599,7 +618,8 @@ export class Room extends DurableObject {
       timer: { mode: st.mode, anchorAt: st.timer.anchorAt, offsetMs: st.timer.offsetMs, paused: st.timer.paused },
       members: this.roster(),
       serverNow: Date.now(),
-      protected: !!st.password
+      protected: !!st.password,
+      playlist: st.playlist || null
     };
     if (sessionToken) out.sessionToken = sessionToken;
     return out;

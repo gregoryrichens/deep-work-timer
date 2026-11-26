@@ -3,6 +3,7 @@
 // Room: WebSocket client for a shared timer room (connect, hello, reconnect, clock sync, presence).
 // No DOM access here; the UI subscribes with Room.on(event, fn).
 var RoomHelpers = (function() {
+  var PL = (typeof module !== 'undefined' && module.exports) ? require('./playlist.js') : PlaylistLink;
   var ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' };
   var ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
 
@@ -106,7 +107,9 @@ var RoomHelpers = (function() {
     return typeof p === 'string' && p.length >= 4 && p.length <= 64;
   }
 
-  // Error text for a room form ({ name, access, pass }), or null when it can be submitted.
+  function hasPlaylistText(text) { return typeof text === 'string' && text.trim() !== ''; }
+
+  // Error text for a room form ({ name, access, pass, playlist }), or null when it can be submitted.
   // keepsPassword: the room is already protected, so a blank password keeps the current one.
   function validateRoomForm(form, keepsPassword) {
     if (!validName(form.name)) return '// DISPLAY NAME MUST BE 1–24 CHARACTERS';
@@ -114,16 +117,22 @@ var RoomHelpers = (function() {
       var keepsCurrent = keepsPassword && form.pass === '';
       if (!keepsCurrent && !validPassword(form.pass)) return '// PASSWORD MUST BE 4–64 CHARACTERS';
     }
+    if (hasPlaylistText(form.playlist)) {
+      var parsed = PL.parse(form.playlist);
+      if (!parsed.ok) return parsed.message;
+    }
     return null;
   }
 
   // The messages that bring an existing room in line with an edited form.
-  // room: { mode, protected, name }; form: { mode, name, access, pass }. Assumes the form is valid.
+  // room: { mode, protected, name, playlist }; form: { mode, name, access, pass, playlist }. Assumes the form is valid.
   function planRoomEdit(room, form) {
     var steps = [];
     if (form.mode !== room.mode) steps.push({ type: 'setMode', payload: { mode: form.mode } });
     if (form.access === 'link' && room.protected) steps.push({ type: 'setPassword', payload: { password: null } });
     if (form.access === 'password' && form.pass !== '') steps.push({ type: 'setPassword', payload: { password: form.pass } });
+    var playlist = hasPlaylistText(form.playlist) ? PL.parse(form.playlist).id : null;
+    if (playlist !== (room.playlist || null)) steps.push({ type: 'setPlaylist', payload: { url: hasPlaylistText(form.playlist) ? form.playlist : null } });
     var name = validName(form.name);
     if (name !== room.name) steps.push({ type: 'setName', payload: { name: name } });
     return steps;
@@ -164,7 +173,7 @@ var Room = (typeof document === 'undefined') ? null : (function() {
   var H = RoomHelpers;
   var R = {
     roomId: null, status: 'idle',   // idle | connecting | authRequired | authFailed | live | reconnecting | expired | full | closed | failed
-    you: null, hostId: null, members: [], protected: false,
+    you: null, hostId: null, members: [], protected: false, playlist: null,
     offset: 0, retryUntil: 0, welcomed: false, closeCode: 0
   };
   var handlers = {};
@@ -289,6 +298,7 @@ var Room = (typeof document === 'undefined') ? null : (function() {
         R.you = m.you; R.hostId = m.hostClientId;
         R.members = Array.isArray(m.members) ? m.members : [];
         R.protected = !!m.protected;
+        R.playlist = PlaylistLink.isValidId(m.playlist) ? m.playlist : null;
         if (m.sessionToken) { setToken(R.roomId, m.sessionToken); password = null; }
         if (typeof m.serverNow === 'number') R.offset = m.serverNow - Date.now();   // provisional until a ping lands
         startPings();
@@ -314,6 +324,10 @@ var Room = (typeof document === 'undefined') ? null : (function() {
         if (typeof m.protected === 'boolean') R.protected = m.protected;
         R.members = Array.isArray(m.members) ? m.members : [];
         emit('members', prev, R.members);
+        break;
+      case 'playlist':
+        R.playlist = PlaylistLink.isValidId(m.playlist) ? m.playlist : null;
+        emit('playlist', R.playlist);
         break;
       case 'host':
         R.hostId = m.hostClientId;
@@ -350,7 +364,7 @@ var Room = (typeof document === 'undefined') ? null : (function() {
     }
     closeSocket();
     R.roomId = roomId; R.welcomed = false; R.members = []; R.you = null; R.hostId = null;
-    R.protected = false; R.offset = 0; R.retryUntil = 0;
+    R.protected = false; R.playlist = null; R.offset = 0; R.retryUntil = 0;
     attempt = 0;
     setStatus('connecting');
     connect();
@@ -360,7 +374,7 @@ var Room = (typeof document === 'undefined') ? null : (function() {
     intentional = true;
     closeSocket();
     R.roomId = null; R.welcomed = false; R.members = []; R.you = null; R.hostId = null;
-    R.protected = false; R.offset = 0; R.retryUntil = 0;
+    R.protected = false; R.playlist = null; R.offset = 0; R.retryUntil = 0;
     password = null; attempt = 0;
     R.status = 'idle';
   }

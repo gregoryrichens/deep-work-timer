@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "dev:clean": "node scripts/clean-local-rooms.js",
-    "test": "node --test tests/session.test.js tests/room.test.js && vitest run",
+    "test": "node --test tests/session.test.js tests/room.test.js tests/playlist.test.js && vitest run",
     "test:server": "vitest run",
     "test:integration": "node --test tests/integration/rooms.integration.test.js"
   },

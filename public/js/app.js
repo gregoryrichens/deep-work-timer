@@ -102,6 +102,12 @@ function accessSection(keepsPassword) {
   return '<div class="config-section"><span class="config-label">Room Access</span>' + cards + password + '</div>';
 }
 
+function playlistSection() {
+  return '<div class="config-section"><label class="config-label" for="cfg-playlist">Playlist (optional)</label>' +
+    '<input type="text" class="text-input" id="cfg-playlist" maxlength="' + PlaylistLink.MAX_INPUT + '" autocomplete="off" spellcheck="false" placeholder="Paste a YouTube playlist link" value="' + esc(S.cfg.playlist) + '">' +
+    '<small class="field-hint">Public or unlisted playlists only. Everyone in the room gets a link to open it.</small></div>';
+}
+
 function statusLine() {
   return '<div class="room-msg' + (S.createError ? ' err' : '') + '" id="room-status" role="status">' + esc(S.createMsg) + '</div>';
 }
@@ -122,6 +128,7 @@ function bindFormFields(form) {
     if (t.id === 'cfg-name') S.cfg.name = t.value;
     else if (t.id === 'cfg-pass') S.cfg.pass = t.value;
     else if (t.id === 'cfg-link') S.cfg.link = t.value;
+    else if (t.id === 'cfg-playlist') S.cfg.playlist = t.value;
   });
 }
 
@@ -163,6 +170,7 @@ function renderCreateForm() {
     '<div class="config-section"><span class="config-label">Select Timer Protocol</span>' + presetPicker() + '</div>' +
     '<div class="h-rule"></div>' + profileSection() +
     '<div class="h-rule"></div>' + accessSection(false) +
+    '<div class="h-rule"></div>' + playlistSection() +
     statusLine() +
     '<button type="submit" class="launch-btn" id="create-btn"' + (S.creating ? ' disabled' : '') + '>CREATE ROOM</button></form>';
 }
@@ -257,6 +265,7 @@ function myName() {
 function loadFormFromRoom() {
   S.cfg.mode = S.mode; S.cfg.snacks = S.exerciseSnacks; S.cfg.name = myName();
   S.cfg.access = Room.protected ? 'password' : 'link'; S.cfg.pass = '';
+  S.cfg.playlist = PlaylistLink.url(Room.playlist) || '';
   S.createMsg = ''; S.createError = false;
 }
 
@@ -280,6 +289,7 @@ function renderEdit() {
     '<div class="config-section"><span class="config-label">Select Timer Protocol</span>' + presetPicker() + '</div>' +
     '<div class="h-rule"></div>' + profileSection() +
     '<div class="h-rule"></div>' + accessSection(Room.protected) +
+    '<div class="h-rule"></div>' + playlistSection() +
     statusLine() +
     '<button type="submit" class="launch-btn" id="save-btn">SAVE</button></form></div>';
 }
@@ -296,7 +306,7 @@ function bindEdit() {
 function saveEdit() {
   var error = RoomHelpers.validateRoomForm(S.cfg, Room.protected);
   if (error) { setCreateStatus(error, true); return; }
-  var steps = RoomHelpers.planRoomEdit({ mode: S.mode, protected: Room.protected, name: myName() }, S.cfg);
+  var steps = RoomHelpers.planRoomEdit({ mode: S.mode, protected: Room.protected, name: myName(), playlist: Room.playlist }, S.cfg);
   var sent = steps.every(function(step) { return Room.send(step.type, step.payload); });
   if (!sent) { setCreateStatus('// NOT CONNECTED', true); return; }
   steps.forEach(function(step) { if (step.type === 'setName') Room.setName(step.payload.name); });
@@ -458,6 +468,14 @@ function renderInvite() {
   return h;
 }
 
+// Members only ever see a link built from a validated playlist ID, never text the host typed.
+function renderPlaylist() {
+  var url = PlaylistLink.url(Room.playlist);
+  if (!url) return '';
+  return '<a class="playlist-link" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" aria-label="Open the room playlist on YouTube in a new tab">' +
+    '♪ OPEN PLAYLIST <span aria-hidden="true">↗</span></a>';
+}
+
 function renderRoster() {
   var t = Room.now();
   var ms = Room.members || [];
@@ -480,6 +498,10 @@ function renderConnBar() {
 function updateRoster() {
   var el = document.getElementById('roster');
   if (el && S.screen === 'timer' && S.roomId) el.innerHTML = renderRoster();
+}
+function updatePlaylist() {
+  var el = document.getElementById('playlist-bar');
+  if (el && S.screen === 'timer' && S.roomId) el.innerHTML = renderPlaylist();
 }
 function updateInvite() {
   var el = document.getElementById('invite-bar');
@@ -527,7 +549,8 @@ function renderTimer() {
   var roomTop = room
     ? '<div id="conn-wrap">' + renderConnBar() + '</div>' +
       (beforePlay ? '<div class="ready-title">Room ready</div>' + renderSummary(canControl) : '') +
-      '<div class="invite-bar" id="invite-bar">' + renderInvite() + '</div>'
+      '<div class="invite-bar" id="invite-bar">' + renderInvite() + '</div>' +
+      '<div class="playlist-bar" id="playlist-bar">' + renderPlaylist() + '</div>'
     : '';
   var roomBottom = room && started ? '<div class="roster-wrap" id="roster">' + renderRoster() + '</div>' : '';
   var subtitle = 'Protocol ' + S.mode + (room ? ' // Snacks ' + (S.exerciseSnacks ? 'ON' : 'OFF') : (S.exerciseSnacks ? ' // Snacks ON' : ''));
@@ -655,6 +678,7 @@ function createRoom() {
 
 function enterCreatedRoom(roomId, name) {
   S.pendingMode = S.cfg.mode;
+  S.pendingPlaylist = S.cfg.playlist.trim();
   S.exerciseSnacks = S.cfg.snacks;
   S.roomId = roomId;
   S.joinPass = ''; S.passEdit = false;
@@ -664,7 +688,7 @@ function enterCreatedRoom(roomId, name) {
 
 function failCreate() {
   Room.leave();
-  S.roomId = null; S.pendingMode = null; S.creating = false;
+  S.roomId = null; S.pendingMode = null; S.pendingPlaylist = ''; S.creating = false;
   setCreateStatus('// COULD NOT ENTER ROOM — TRY AGAIN', true);
   render();
 }
@@ -710,6 +734,12 @@ Room.on('welcome', function(m) {
     }
     S.pendingMode = null;
   }
+  // Same for a playlist: the server reads the link itself and tells everyone the ID it found.
+  if (S.pendingPlaylist) {
+    if (Room.isHost()) Room.send('setPlaylist', { url: S.pendingPlaylist });
+    S.pendingPlaylist = '';
+    S.cfg.playlist = '';
+  }
   if (S.creating) {
     S.creating = false;
     setCreateStatus('', false);
@@ -737,6 +767,8 @@ Room.on('members', function(prev, next) {
   updateRoster();
   if (S.lastProtected !== Room.protected) { S.lastProtected = Room.protected; updateInvite(); }   // lock icon follows `protected` from the server
 });
+
+Room.on('playlist', updatePlaylist);
 
 Room.on('host', function() {
   if (S.screen === 'edit' && !Room.isHost()) { closeEdit(); return; }

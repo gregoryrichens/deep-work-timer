@@ -784,3 +784,116 @@ describe('renaming', () => {
     await host.next('pong');
   });
 });
+
+describe('room playlist', () => {
+  const PL_ID = 'PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf';
+  const PL_LINK = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=' + PL_ID + '&index=2&si=tracking';
+
+  async function twoMembers() {
+    const { roomId } = await mk();
+    const host = await jn(roomId, 1);
+    await host.next('welcome');
+    const guest = await jn(roomId, 2);
+    await guest.next('welcome');
+    return { roomId, host, guest };
+  }
+
+  it('starts with no playlist in the welcome', async () => {
+    const { roomId } = await mk();
+    const host = await jn(roomId, 1);
+    expect((await host.next('welcome')).playlist).toBeNull();
+  });
+
+  it('stores only the list id the server finds, and tells every member that id', async () => {
+    const { roomId, host, guest } = await twoMembers();
+    host.send({ type: 'setPlaylist', url: PL_LINK });
+    expect((await host.next('playlist')).playlist).toBe(PL_ID);
+    expect((await guest.next('playlist')).playlist).toBe(PL_ID);
+    await runInDurableObject(stubFor(roomId), async (_i, state) => {
+      const st = await state.storage.get('state');
+      expect(st.playlist).toBe(PL_ID);
+      expect(JSON.stringify(st)).not.toContain('dQw4w9WgXcQ');
+      expect(JSON.stringify(st)).not.toContain('tracking');
+    });
+  });
+
+  it('gives a member who joins later the playlist in their welcome', async () => {
+    const { roomId, host } = await twoMembers();
+    host.send({ type: 'setPlaylist', url: PL_LINK });
+    await host.next('playlist');
+    const late = await jn(roomId, 3);
+    expect((await late.next('welcome')).playlist).toBe(PL_ID);
+  });
+
+  it('lets the host replace and clear it, and stays quiet when nothing changes', async () => {
+    const { host, guest } = await twoMembers();
+    host.send({ type: 'setPlaylist', url: PL_LINK });
+    host.send({ type: 'setPlaylist', url: 'https://www.youtube.com/playlist?list=' + PL_ID });   // same id: no broadcast
+    host.send({ type: 'setPlaylist', url: 'https://music.youtube.com/playlist?list=PLanotherPlaylist123' });
+    host.send({ type: 'setPlaylist', url: null });
+    // messages arrive in order, so an unwanted broadcast for the repeat would show up as an extra entry
+    for (const client of [host, guest]) {
+      expect((await client.next('playlist')).playlist).toBe(PL_ID);
+      expect((await client.next('playlist')).playlist).toBe('PLanotherPlaylist123');
+      expect((await client.next('playlist')).playlist).toBeNull();
+      expect(client.noMessage('playlist')).toBe(true);
+    }
+  });
+
+  it('is host-only', async () => {
+    const { roomId, host, guest } = await twoMembers();
+    guest.send({ type: 'setPlaylist', url: PL_LINK });
+    await guest.nextError('notHost');
+    expect(host.noMessage('playlist')).toBe(true);
+    await runInDurableObject(stubFor(roomId), async (_i, state) => {
+      expect((await state.storage.get('state')).playlist).toBeNull();
+    });
+  });
+
+  it('refuses anything that is not a public YouTube playlist link', async () => {
+    const { roomId, host, guest } = await twoMembers();
+    // four violations: the fifth would disconnect the socket
+    const bad = [
+      'javascript:alert(1)',
+      'https://evil.example/playlist?list=' + PL_ID,
+      'https://www.youtube.com/playlist?list=WL',
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    ];
+    for (const url of bad) {
+      host.send({ type: 'setPlaylist', url });
+      await host.nextError('badMessage');
+    }
+    host.send({ type: 'ping', t: 1 });
+    await host.next('pong');
+    expect(guest.noMessage('playlist')).toBe(true);
+    await runInDurableObject(stubFor(roomId), async (_i, state) => {
+      expect((await state.storage.get('state')).playlist).toBeNull();
+    });
+  });
+
+  it('refuses a missing, non-string or oversize url', async () => {
+    const { host } = await twoMembers();
+    for (const msg of [{ type: 'setPlaylist' }, { type: 'setPlaylist', url: 42 }, { type: 'setPlaylist', url: { a: 1 } }, { type: 'setPlaylist', url: '' }]) {
+      host.send(msg);
+      await host.nextError('badMessage');
+    }
+    host.send({ type: 'ping', t: 1 });
+    await host.next('pong');
+    host.send({ type: 'setPlaylist', url: 'https://www.youtube.com/playlist?list=' + PL_ID + '&x=' + 'a'.repeat(900) });
+    await host.nextError('badMessage');
+  });
+
+  it('treats a room saved before playlists existed as having none', async () => {
+    const { roomId, host } = await twoMembers();
+    await runInDurableObject(stubFor(roomId), async (instance, state) => {
+      const st = await state.storage.get('state');
+      delete st.playlist;
+      await state.storage.put('state', st);
+      instance.state = st;
+    });
+    const late = await jn(roomId, 3);
+    expect((await late.next('welcome')).playlist).toBeNull();
+    host.send({ type: 'setPlaylist', url: PL_LINK });
+    expect((await host.next('playlist')).playlist).toBe(PL_ID);
+  });
+});

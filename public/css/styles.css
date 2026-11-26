@@ -595,6 +595,15 @@
   }
   .config-section .text-input + .checkbox-container { margin-top: 10px; }
   .pass-label { margin-top: 12px; }
+  .field-hint { display: block; margin-top: 6px; color: var(--pip-dim); font-size: 0.7rem; letter-spacing: 1px; }
+  .playlist-bar:empty { display: none; }
+  .playlist-link {
+    display: block; text-align: center; padding: 8px 10px; margin-bottom: 14px;
+    border: 1px solid var(--pip-dim); border-radius: 2px; background: var(--pip-faint);
+    color: var(--pip-primary); text-decoration: none;
+    font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; letter-spacing: 2px; transition: all 0.25s ease;
+  }
+  .playlist-link:hover, .playlist-link:focus-visible { border-color: var(--pip-bright); color: var(--pip-bright); }
 
   .summary-bar {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
