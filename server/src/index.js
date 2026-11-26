@@ -1,6 +1,7 @@
 // Worker entry: room creation, WebSocket upgrade gate, static assets for everything else.
 import { DurableObject } from 'cloudflare:workers';
 import { createRoomId, verifyRoomId, hashPassword, parseIterations, generateToken, hashToken } from './crypto.js';
+import { isOriginAllowed } from './origins.js';
 export { Room } from './room.js';
 
 const HOUR_MS = 3600 * 1000;
@@ -15,10 +16,7 @@ function json(status, body) {
 }
 
 function originAllowed(request, env) {
-  const origin = request.headers.get('Origin');
-  if (!origin) return false;
-  const allowed = String(env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
-  return allowed.indexOf(origin) !== -1;
+  return isOriginAllowed(request.headers.get('Origin'), env.ALLOWED_ORIGINS);
 }
 
 // Hourly per-IP creation counter. The rate-limit binding only supports 10s/60s periods,
